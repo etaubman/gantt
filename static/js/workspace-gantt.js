@@ -15,19 +15,33 @@ Gantt.gantt = (function() {
     return new Date(d.getFullYear(), d.getMonth(), 1);
   }
 
-  function buildTimeCells(minDate, end, PX_PER_DAY, stepMode) {
+  function buildTimeCells(minDate, end, pxPerDay, stepMode) {
     var cells = [];
     var cursor;
     var next;
     var label;
+    var dayLabelEvery = 1;
+
+    if (stepMode === 'days') {
+      dayLabelEvery = pxPerDay >= 24 ? 1 : (pxPerDay >= 16 ? 2 : 3);
+    }
 
     if (stepMode === 'days') {
       cursor = dateAtStart(minDate);
+      var dayIndex = 0;
       while (cursor < end) {
         next = new Date(cursor.getTime() + dayMs);
-        label = cursor.toLocaleDateString(undefined, { day: 'numeric' });
-        cells.push({ width: Math.max(1, PX_PER_DAY), label: label });
+        label = dayIndex % dayLabelEvery === 0
+          ? cursor.toLocaleDateString(undefined, { day: 'numeric' })
+          : '';
+        cells.push({
+          width: Math.max(1, pxPerDay),
+          label: label,
+          title: cursor.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }),
+          isDayCell: true
+        });
         cursor = next;
+        dayIndex += 1;
       }
     } else if (stepMode === 'weeks') {
       cursor = dateAtStart(minDate);
@@ -35,7 +49,7 @@ Gantt.gantt = (function() {
         next = new Date(cursor.getTime() + (7 * dayMs));
         label = cursor.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
         cells.push({
-          width: Math.max(1, Math.round((Math.min(next, end) - cursor) / dayMs) * PX_PER_DAY),
+          width: Math.max(1, Math.round((Math.min(next, end) - cursor) / dayMs) * pxPerDay),
           label: label
         });
         cursor = next;
@@ -45,7 +59,7 @@ Gantt.gantt = (function() {
       while (cursor < end) {
         next = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
         cells.push({
-          width: Math.max(1, Math.round((Math.min(next, end) - Math.max(cursor, minDate)) / dayMs) * PX_PER_DAY),
+          width: Math.max(1, Math.round((Math.min(next, end) - Math.max(cursor, minDate)) / dayMs) * pxPerDay),
           label: cursor.toLocaleDateString(undefined, { month: 'short' })
         });
         cursor = next;
@@ -55,7 +69,7 @@ Gantt.gantt = (function() {
       while (cursor < end) {
         next = new Date(cursor.getFullYear(), cursor.getMonth() + 3, 1);
         cells.push({
-          width: Math.max(1, Math.round((Math.min(next, end) - Math.max(cursor, minDate)) / dayMs) * PX_PER_DAY),
+          width: Math.max(1, Math.round((Math.min(next, end) - Math.max(cursor, minDate)) / dayMs) * pxPerDay),
           label: 'Q' + (Math.floor(cursor.getMonth() / 3) + 1)
         });
         cursor = next;
@@ -65,7 +79,7 @@ Gantt.gantt = (function() {
       while (cursor < end) {
         next = new Date(cursor.getFullYear() + 1, 0, 1);
         cells.push({
-          width: Math.max(1, Math.round((Math.min(next, end) - Math.max(cursor, minDate)) / dayMs) * PX_PER_DAY),
+          width: Math.max(1, Math.round((Math.min(next, end) - Math.max(cursor, minDate)) / dayMs) * pxPerDay),
           label: cursor.getFullYear().toString()
         });
         cursor = next;
@@ -75,35 +89,35 @@ Gantt.gantt = (function() {
     return cells;
   }
 
-  function buildHeaderRows(zoom, minDate, totalDays, PX_PER_DAY) {
+  function buildHeaderRows(zoom, minDate, totalDays, pxPerDay) {
     var end = new Date(minDate.getTime() + totalDays * dayMs);
     if (zoom === 'days') {
       return {
-        major: buildTimeCells(minDate, end, PX_PER_DAY, 'months'),
-        minor: buildTimeCells(minDate, end, PX_PER_DAY, 'days')
+        major: buildTimeCells(minDate, end, pxPerDay, 'months'),
+        minor: buildTimeCells(minDate, end, pxPerDay, 'days')
       };
     }
     if (zoom === 'weeks') {
       return {
-        major: buildTimeCells(minDate, end, PX_PER_DAY, 'months'),
-        minor: buildTimeCells(minDate, end, PX_PER_DAY, 'weeks')
+        major: buildTimeCells(minDate, end, pxPerDay, 'months'),
+        minor: buildTimeCells(minDate, end, pxPerDay, 'weeks')
       };
     }
     if (zoom === 'months') {
       return {
-        major: buildTimeCells(minDate, end, PX_PER_DAY, 'years'),
-        minor: buildTimeCells(minDate, end, PX_PER_DAY, 'months')
+        major: buildTimeCells(minDate, end, pxPerDay, 'years'),
+        minor: buildTimeCells(minDate, end, pxPerDay, 'months')
       };
     }
     if (zoom === 'quarters') {
       return {
-        major: buildTimeCells(minDate, end, PX_PER_DAY, 'years'),
-        minor: buildTimeCells(minDate, end, PX_PER_DAY, 'quarters')
+        major: buildTimeCells(minDate, end, pxPerDay, 'years'),
+        minor: buildTimeCells(minDate, end, pxPerDay, 'quarters')
       };
     }
     return {
-      major: buildTimeCells(minDate, end, PX_PER_DAY, 'years'),
-      minor: buildTimeCells(minDate, end, PX_PER_DAY, 'years')
+      major: buildTimeCells(minDate, end, pxPerDay, 'years'),
+      minor: buildTimeCells(minDate, end, pxPerDay, 'years')
     };
   }
 
@@ -114,10 +128,11 @@ Gantt.gantt = (function() {
       rowEl.className = 'gantt-header-row gantt-header-row-' + key;
       rows[key].forEach(function(cell) {
         var span = document.createElement('span');
-        span.className = 'gantt-header-cell';
+        span.className = 'gantt-header-cell' + (cell.isDayCell ? ' gantt-header-cell-day' : '');
         span.style.width = cell.width + 'px';
         span.style.minWidth = cell.width + 'px';
         span.textContent = cell.label;
+        if (cell.title) span.title = cell.title;
         rowEl.appendChild(span);
       });
       headerEl.appendChild(rowEl);
@@ -176,7 +191,7 @@ Gantt.gantt = (function() {
   function render(tree, taskRag, selectedTaskUid, onTaskSelect, onTaskOpenDetail) {
     var el = Gantt.state.getEl();
     var c = Gantt.state.getConstants();
-    var PX_PER_DAY = c.PX_PER_DAY;
+    var basePxPerDay = c.PX_PER_DAY;
     var ROW_HEIGHT = c.ROW_HEIGHT;
     var zoom = Gantt.state.getTimelineZoom ? Gantt.state.getTimelineZoom() : 'months';
     if (!el.ganttHeader || !el.ganttBody) return;
@@ -199,7 +214,14 @@ Gantt.gantt = (function() {
     var maxDateEnd = dateAtStart(maxDate);
     maxDateEnd = new Date(maxDateEnd.getTime() + (14 * dayMs));
     var totalDays = Math.max(1, Math.ceil((maxDateEnd - minDateStart) / dayMs));
-    var totalWidth = totalDays * PX_PER_DAY;
+    var wrapWidth = el.ganttScrollWrap ? el.ganttScrollWrap.clientWidth : 0;
+    var pxPerDay = basePxPerDay;
+    if (wrapWidth > 0) {
+      pxPerDay = Math.max(basePxPerDay, wrapWidth / totalDays);
+    }
+    var totalWidth = totalDays * pxPerDay;
+    var gridStepDays = zoom === 'days' ? 1 : 7;
+    var gridColumnWidth = pxPerDay * gridStepDays;
 
     var timelineInner = el.ganttTimelineInner || document.getElementById('gantt-timeline-inner');
     if (timelineInner) {
@@ -209,10 +231,10 @@ Gantt.gantt = (function() {
       var today = new Date();
       today.setHours(0, 0, 0, 0);
       var daysFromStart = (today - minDateStart) / dayMs;
-      var todayPx = Math.round(daysFromStart * PX_PER_DAY);
+      var todayPx = Math.round(daysFromStart * pxPerDay);
       timelineInner.setAttribute('data-total-width', totalWidth);
       timelineInner.setAttribute('data-today-px', Math.max(0, Math.min(totalWidth, todayPx)));
-      timelineInner.setAttribute('data-px-per-day', PX_PER_DAY);
+      timelineInner.setAttribute('data-px-per-day', pxPerDay);
       if (todayPx >= 0 && todayPx < totalWidth) {
         var todayLine = document.createElement('div');
         var headerHeight = ROW_HEIGHT;
@@ -233,9 +255,10 @@ Gantt.gantt = (function() {
     }
 
     el.ganttHeader.style.minWidth = totalWidth + 'px';
-    renderHeaderRows(el.ganttHeader, buildHeaderRows(zoom, minDateStart, totalDays, PX_PER_DAY));
+    renderHeaderRows(el.ganttHeader, buildHeaderRows(zoom, minDateStart, totalDays, pxPerDay));
 
-    el.ganttBody.style.setProperty('--gantt-cell-width', PX_PER_DAY + 'px');
+    el.ganttBody.style.setProperty('--gantt-cell-width', pxPerDay + 'px');
+    el.ganttBody.style.setProperty('--gantt-grid-column-width', gridColumnWidth + 'px');
     el.ganttBody.style.setProperty('--gantt-row-height', ROW_HEIGHT + 'px');
     el.ganttBody.innerHTML = '';
     el.ganttBody.style.minWidth = totalWidth + 'px';
@@ -255,11 +278,11 @@ Gantt.gantt = (function() {
       if (t.start_date && t.end_date) {
         var start = new Date(t.start_date);
         var end = new Date(t.end_date);
-        left = Math.max(0, (dateAtStart(start) - minDateStart) / dayMs) * PX_PER_DAY;
-        w = Math.max(12, (Math.max(1, Math.round((dateAtStart(end) - dateAtStart(start)) / dayMs) + 1)) * PX_PER_DAY);
+        left = Math.max(0, (dateAtStart(start) - minDateStart) / dayMs) * pxPerDay;
+        w = Math.max(12, (Math.max(1, Math.round((dateAtStart(end) - dateAtStart(start)) / dayMs) + 1)) * pxPerDay);
       } else {
         left = 0;
-        w = Math.max(48, PX_PER_DAY * 7);
+        w = Math.max(48, pxPerDay * 7);
       }
       var bar = document.createElement('button');
       bar.className = 'bar rag-' + rag;

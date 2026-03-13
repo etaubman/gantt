@@ -682,6 +682,13 @@
   text-transform: uppercase;
 }
 
+.gantt-header-cell-day {
+  font-size: 0.64rem;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #d7e3f6;
+}
+
 .gantt-body {
   position: relative;
   min-height: 240px;
@@ -691,7 +698,7 @@
     linear-gradient(to right, rgba(255,255,255,0.06) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(255,255,255,0.05) 1px, transparent 1px);
   background-size:
-    calc(var(--gantt-cell-width, 28px) * 7) 100%,
+    var(--gantt-grid-column-width, calc(var(--gantt-cell-width, 28px) * 7)) 100%,
     100% var(--gantt-row-height, 44px);
 }
 
