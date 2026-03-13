@@ -64,7 +64,10 @@ Gantt.detail = (function() {
           '<span class="summary-chip summary-chip-status">' + escapeHtml(titleCaseStatus(task.status || 'not_started')) + ' • ' + (task.progress != null ? task.progress : 0) + '%</span>' +
           '<span class="summary-chip summary-chip-mode">' + (isEditable ? ('Edit mode' + (employeeId ? ' • ' + escapeHtml(employeeId) : '')) : 'Read mode') + '</span>' +
         '</div>' +
-        '<button type="button" class="btn btn-primary" id="detail-save"' + disabledAttr + '>Save task</button>' +
+        '<div class="detail-save-stack">' +
+          '<button type="button" class="btn btn-primary" id="detail-save"' + disabledAttr + '>Save task</button>' +
+          '<div class="detail-save-hint">' + (isEditable ? 'Changes update the plan immediately.' : 'Switch to edit mode to save changes.') + '</div>' +
+        '</div>' +
       '</div>' +
       '<div class="detail-tabs" role="tablist" aria-label="Task detail sections">' +
         '<button type="button" class="detail-tab is-active" data-tab-btn="task">Task</button>' +
@@ -75,7 +78,12 @@ Gantt.detail = (function() {
       '</div>' +
       '<div class="detail-tab-panel is-active" data-tab-panel="task">' +
         '<div class="section">' +
-          '<h3>Task</h3>' +
+          '<div class="section-heading">' +
+            '<div>' +
+              '<h3>Task</h3>' +
+              '<p class="section-copy">Core task details, ownership, and schedule window.</p>' +
+            '</div>' +
+          '</div>' +
           '<div class="field"><label>Name</label><input type="text" id="detail-name" value="' + escapeHtml(task.name) + '" placeholder="Task name"' + disabledAttr + ' /></div>' +
           '<div class="field"><label>Description</label><textarea id="detail-desc"' + disabledAttr + '>' + escapeHtml(task.description) + '</textarea></div>' +
           '<div class="form-row">' +
@@ -89,32 +97,48 @@ Gantt.detail = (function() {
         '</div>' +
       '</div>' +
       '<div class="detail-tab-panel" data-tab-panel="health" hidden>' +
-        '<div class="section">' +
-          '<h3>Health</h3>' +
-          '<div class="form-row">' +
+        '<div class="section section-health">' +
+          '<div class="section-heading">' +
+            '<div>' +
+              '<h3>Health</h3>' +
+              '<p class="section-copy">Track delivery health, recovery plan, and the latest RAG signal.</p>' +
+            '</div>' +
+          '</div>' +
+          '<div class="health-metrics">' +
             '<div class="field"><label>Status</label>' +
               '<select id="detail-status"' + disabledAttr + '>' +
-                '<option value="not_started"' + (task.status === 'not_started' ? ' selected' : '') + '>not_started</option>' +
-                '<option value="in_progress"' + (task.status === 'in_progress' ? ' selected' : '') + '>in_progress</option>' +
-                '<option value="complete"' + (task.status === 'complete' ? ' selected' : '') + '>complete</option>' +
-                '<option value="blocked"' + (task.status === 'blocked' ? ' selected' : '') + '>blocked</option>' +
+                '<option value="not_started"' + (task.status === 'not_started' ? ' selected' : '') + '>Not Started</option>' +
+                '<option value="in_progress"' + (task.status === 'in_progress' ? ' selected' : '') + '>In Progress</option>' +
+                '<option value="complete"' + (task.status === 'complete' ? ' selected' : '') + '>Complete</option>' +
+                '<option value="blocked"' + (task.status === 'blocked' ? ' selected' : '') + '>Blocked</option>' +
               '</select>' +
             '</div>' +
             '<div class="field"><label>Progress %</label><input type="number" id="detail-progress" min="0" max="100" value="' + (task.progress != null ? task.progress : 0) + '"' + disabledAttr + ' /></div>' +
           '</div>' +
           '<div id="rag-current"></div>' +
-          '<div class="form-inline">' +
-            '<select id="rag-status"' + disabledAttr + '><option value="green">green</option><option value="amber">amber</option><option value="red">red</option></select>' +
-            '<input type="text" id="rag-rationale" placeholder="Rationale (required for amber/red)" style="flex:1;min-width:120px"' + disabledAttr + ' />' +
-            '<button type="button" class="btn btn-secondary" id="rag-add"' + disabledAttr + '>Update RAG</button>' +
+          '<div class="rag-composer">' +
+            '<div class="rag-composer-header">' +
+              '<div class="section-kicker">Update RAG</div>' +
+              '<div class="section-copy">Rationale is required for amber and red.</div>' +
+            '</div>' +
+            '<div class="rag-composer-row">' +
+              '<select id="rag-status"' + disabledAttr + '><option value="green">green</option><option value="amber">amber</option><option value="red">red</option></select>' +
+              '<input type="text" id="rag-rationale" placeholder="What changed and why?"' + disabledAttr + ' />' +
+              '<button type="button" class="btn btn-secondary" id="rag-add"' + disabledAttr + '>Update RAG</button>' +
+            '</div>' +
+            '<div class="field field-path-to-green"><label>Path to green</label><textarea id="rag-path-to-green" placeholder="Recovery plan, mitigation actions, owners, and milestones to return to green"' + disabledAttr + '></textarea></div>' +
           '</div>' +
-          '<div class="field"><label>Path to green</label><textarea id="rag-path-to-green" placeholder="Recovery plan, mitigation actions, owners, and milestones to return to green"' + disabledAttr + '></textarea></div>' +
           '<div id="rag-history"></div>' +
         '</div>' +
       '</div>' +
       '<div class="detail-tab-panel" data-tab-panel="comments" hidden>' +
         '<div class="section">' +
-          '<h3>Comments</h3>' +
+          '<div class="section-heading">' +
+            '<div>' +
+              '<h3>Comments</h3>' +
+              '<p class="section-copy">Capture updates, decisions, and context for this task.</p>' +
+            '</div>' +
+          '</div>' +
           '<div id="comments-list"></div>' +
           '<div class="field"><label>Comment</label><textarea id="comment-text" placeholder="' + (isEditable ? 'Add a comment' : 'Switch to edit mode to comment') + '"' + disabledAttr + '></textarea></div>' +
           '<button type="button" class="btn btn-secondary" id="comment-add"' + disabledAttr + '>Add comment</button>' +
@@ -122,7 +146,12 @@ Gantt.detail = (function() {
       '</div>' +
       '<div class="detail-tab-panel" data-tab-panel="risks" hidden>' +
         '<div class="section">' +
-          '<h3>Risks</h3>' +
+          '<div class="section-heading">' +
+            '<div>' +
+              '<h3>Risks</h3>' +
+              '<p class="section-copy">Track blockers, mitigation plans, and open delivery risks.</p>' +
+            '</div>' +
+          '</div>' +
           '<div id="risks-list"></div>' +
           '<button type="button" class="btn btn-secondary" id="risk-add-btn"' + disabledAttr + '>Add risk</button>' +
           '<div id="risk-form" style="display:none; margin-top:0.5rem;">' +
@@ -141,7 +170,12 @@ Gantt.detail = (function() {
       '</div>' +
       '<div class="detail-tab-panel" data-tab-panel="dependencies" hidden>' +
         '<div class="section">' +
-          '<h3>Dependencies</h3>' +
+          '<div class="section-heading">' +
+            '<div>' +
+              '<h3>Dependencies</h3>' +
+              '<p class="section-copy">Manage predecessor and successor links that affect delivery flow.</p>' +
+            '</div>' +
+          '</div>' +
           '<div id="deps-list"></div>' +
           '<div class="form-inline">' +
             '<select id="dep-predecessor"' + disabledAttr + '></select>' +
@@ -197,10 +231,19 @@ Gantt.detail = (function() {
         var cur = rag.length ? rag[rag.length - 1] : null;
         cacheRagTooltip(selectedTaskUid, rag);
         document.getElementById('rag-current').innerHTML = cur
-          ? '<div class="detail-highlight-row"><span class="rag-badge rag-tooltip-anchor" id="rag-current-badge" tabindex="0">' + escapeHtml(titleCaseStatus(cur.status)) + '</span><span>' + (cur.rationale ? escapeHtml(cur.rationale) : 'No rationale provided') + '</span></div>'
-          : '<span class="empty-msg">No RAG status yet</span>';
+          ? '<div class="rag-current-card">' +
+              '<div class="rag-current-header">' +
+                '<span class="rag-badge rag-tooltip-anchor" id="rag-current-badge" tabindex="0">' + escapeHtml(titleCaseStatus(cur.status)) + '</span>' +
+                '<span class="rag-current-meta">' + escapeHtml(prettyDate(cur.created_at)) + '</span>' +
+              '</div>' +
+              '<div class="rag-current-body">' + escapeHtml(cur.rationale || 'No rationale provided') + '</div>' +
+              (cur.status !== 'green'
+                ? '<div class="rag-current-foot"><span class="rag-current-foot-label">Path to green</span><span>' + escapeHtml(cur.path_to_green || 'Not provided yet') + '</span></div>'
+                : '') +
+            '</div>'
+          : '<div class="rag-current-empty">No RAG status yet. Set the current signal and recovery plan here.</div>';
         document.getElementById('rag-history').innerHTML = rag.length <= 1 ? '' : rag.slice(0, -1).reverse().map(function(r) {
-          return '<div class="list-item"><span class="rag-badge ' + r.status + '">' + escapeHtml(r.status) + '</span> ' + escapeHtml(r.rationale) + ' <div class="meta">' + escapeHtml(r.created_at) + '</div></div>';
+          return '<div class="list-item"><span class="rag-badge ' + r.status + '">' + escapeHtml(titleCaseStatus(r.status)) + '</span> ' + escapeHtml(r.rationale || 'No rationale provided') + ' <div class="meta">' + escapeHtml(prettyDate(r.created_at)) + '</div></div>';
         }).join('');
         if (cur) {
           var badge = document.getElementById('rag-current-badge');
@@ -237,7 +280,7 @@ Gantt.detail = (function() {
     function loadComments() {
       Gantt.api.getTaskComments(selectedTaskUid).then(function(comments) {
         var listEl = document.getElementById('comments-list');
-        listEl.innerHTML = comments.length === 0 ? '<p class="empty-msg">No comments</p>' : comments.map(function(c) {
+        listEl.innerHTML = comments.length === 0 ? '<div class="empty-state-card">No comments yet. Add updates, decisions, or notes for this task.</div>' : comments.map(function(c) {
           return '<div class="list-item">' + escapeHtml(c.comment_text) + ' <div class="meta">' + escapeHtml(c.author) + ' · ' + escapeHtml(c.created_at) + '</div></div>';
         }).join('');
       });
@@ -262,7 +305,7 @@ Gantt.detail = (function() {
     function loadRisks() {
       Gantt.api.getTaskRisks(selectedTaskUid).then(function(risks) {
         var listEl = document.getElementById('risks-list');
-        listEl.innerHTML = risks.length === 0 ? '<p class="empty-msg">No risks</p>' : risks.map(function(r) {
+        listEl.innerHTML = risks.length === 0 ? '<div class="empty-state-card">No risks yet. Add delivery risks, owners, and mitigation actions here.</div>' : risks.map(function(r) {
           return '<div class="list-item" data-uid="' + escapeHtml(r.uid) + '">' +
             '<strong>' + escapeHtml(r.title) + '</strong>' +
             ' <span class="severity-badge ' + escapeHtml(r.severity) + '">' + escapeHtml(r.severity) + '</span>' +
@@ -362,7 +405,7 @@ Gantt.detail = (function() {
     }).concat(predDeps.map(function(d) {
       return { ...d, label: 'this → ' + (taskNames[d.successor_task_uid] || d.successor_task_uid) + ' (' + d.dependency_type + ')' };
     }));
-    depsList.innerHTML = depItems.length === 0 ? '<p class="empty-msg">No dependencies</p>' : depItems.map(function(d) {
+    depsList.innerHTML = depItems.length === 0 ? '<div class="empty-state-card">No dependencies yet. Add predecessor links to map sequencing and delivery impact.</div>' : depItems.map(function(d) {
       return '<div class="list-item">' + escapeHtml(d.label) + ' <button type="button" class="btn btn-danger btn-dep-remove" style="margin-left:8px"' + disabledAttr + ' data-dep-uid="' + escapeHtml(d.uid) + '">Remove</button></div>';
     }).join('');
     depsList.querySelectorAll('.btn-dep-remove').forEach(function(b) {
