@@ -753,6 +753,20 @@
   box-shadow: 0 0 0 1px rgba(97, 168, 255, 0.26), 0 14px 28px rgba(0, 0, 0, 0.22);
 }
 
+.gantt-row.dependency-row-active,
+.gantt-row.dependency-row-related {
+  background: rgba(255,255,255,0.04);
+}
+
+.gantt-row .bar.dependency-bar-active {
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.22), 0 16px 34px rgba(0, 0, 0, 0.28);
+  filter: brightness(1.08);
+}
+
+.gantt-row .bar.dependency-bar-related {
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.14), 0 12px 24px rgba(0, 0, 0, 0.22);
+}
+
 .gantt-row .bar.rag-green { background: linear-gradient(90deg, #167337 0%, #24a34c 100%); }
 .gantt-row .bar.rag-amber { background: linear-gradient(90deg, #8e6300 0%, #c9970a 100%); }
 .gantt-row .bar.rag-red { background: linear-gradient(90deg, #902a2a 0%, #c93a3a 100%); }
@@ -816,6 +830,30 @@
 .gantt-row:hover .gantt-row-meta,
 .gantt-row.selected .gantt-row-meta {
   opacity: 1;
+}
+
+.gantt-dependency-overlay {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.gantt-dependency-link {
+  fill: none;
+  stroke-width: 2.25;
+  stroke-linecap: round;
+  opacity: 0.96;
+  filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.22));
+}
+
+.gantt-dependency-link.incoming {
+  stroke: #f6c453;
+}
+
+.gantt-dependency-link.outgoing {
+  stroke: #77b6ff;
 }
 
 .gantt-super-tooltip {

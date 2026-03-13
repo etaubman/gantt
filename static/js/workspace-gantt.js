@@ -2,6 +2,7 @@ window.Gantt = window.Gantt || {};
 
 Gantt.gantt = (function() {
   var dayMs = 24 * 60 * 60 * 1000;
+  var SVG_NS = 'http://www.w3.org/2000/svg';
   var escapeHtml = function(s) { return Gantt.utils.escapeHtml(s); };
   var prettyDate = function(d) { return Gantt.utils.prettyDate(d); };
   var titleCaseStatus = function(status) { return Gantt.utils.titleCaseStatus(status); };
@@ -139,6 +140,133 @@ Gantt.gantt = (function() {
     });
   }
 
+  function createSvgEl(name) {
+    return document.createElementNS(SVG_NS, name);
+  }
+
+  function buildDependencyOverlay(totalWidth, totalHeight) {
+    var overlay = createSvgEl('svg');
+    overlay.setAttribute('class', 'gantt-dependency-overlay');
+    overlay.setAttribute('width', totalWidth);
+    overlay.setAttribute('height', totalHeight);
+    overlay.setAttribute('viewBox', '0 0 ' + totalWidth + ' ' + totalHeight);
+    overlay.setAttribute('aria-hidden', 'true');
+
+    var defs = createSvgEl('defs');
+
+    var incomingArrow = createSvgEl('marker');
+    incomingArrow.setAttribute('id', 'gantt-dep-arrow-incoming');
+    incomingArrow.setAttribute('markerWidth', '10');
+    incomingArrow.setAttribute('markerHeight', '10');
+    incomingArrow.setAttribute('refX', '8');
+    incomingArrow.setAttribute('refY', '5');
+    incomingArrow.setAttribute('orient', 'auto');
+    var incomingArrowPath = createSvgEl('path');
+    incomingArrowPath.setAttribute('d', 'M 0 0 L 10 5 L 0 10 z');
+    incomingArrowPath.setAttribute('fill', '#f6c453');
+    incomingArrow.appendChild(incomingArrowPath);
+
+    var outgoingArrow = createSvgEl('marker');
+    outgoingArrow.setAttribute('id', 'gantt-dep-arrow-outgoing');
+    outgoingArrow.setAttribute('markerWidth', '10');
+    outgoingArrow.setAttribute('markerHeight', '10');
+    outgoingArrow.setAttribute('refX', '8');
+    outgoingArrow.setAttribute('refY', '5');
+    outgoingArrow.setAttribute('orient', 'auto');
+    var outgoingArrowPath = createSvgEl('path');
+    outgoingArrowPath.setAttribute('d', 'M 0 0 L 10 5 L 0 10 z');
+    outgoingArrowPath.setAttribute('fill', '#77b6ff');
+    outgoingArrow.appendChild(outgoingArrowPath);
+
+    var incomingDot = createSvgEl('marker');
+    incomingDot.setAttribute('id', 'gantt-dep-dot-incoming');
+    incomingDot.setAttribute('markerWidth', '8');
+    incomingDot.setAttribute('markerHeight', '8');
+    incomingDot.setAttribute('refX', '4');
+    incomingDot.setAttribute('refY', '4');
+    var incomingDotCircle = createSvgEl('circle');
+    incomingDotCircle.setAttribute('cx', '4');
+    incomingDotCircle.setAttribute('cy', '4');
+    incomingDotCircle.setAttribute('r', '2.5');
+    incomingDotCircle.setAttribute('fill', '#f6c453');
+    incomingDot.appendChild(incomingDotCircle);
+
+    var outgoingDot = createSvgEl('marker');
+    outgoingDot.setAttribute('id', 'gantt-dep-dot-outgoing');
+    outgoingDot.setAttribute('markerWidth', '8');
+    outgoingDot.setAttribute('markerHeight', '8');
+    outgoingDot.setAttribute('refX', '4');
+    outgoingDot.setAttribute('refY', '4');
+    var outgoingDotCircle = createSvgEl('circle');
+    outgoingDotCircle.setAttribute('cx', '4');
+    outgoingDotCircle.setAttribute('cy', '4');
+    outgoingDotCircle.setAttribute('r', '2.5');
+    outgoingDotCircle.setAttribute('fill', '#77b6ff');
+    outgoingDot.appendChild(outgoingDotCircle);
+
+    defs.appendChild(incomingArrow);
+    defs.appendChild(outgoingArrow);
+    defs.appendChild(incomingDot);
+    defs.appendChild(outgoingDot);
+    overlay.appendChild(defs);
+    return overlay;
+  }
+
+  function clearDependencyHover(overlay, geometryByUid) {
+    if (overlay) {
+      while (overlay.childNodes.length > 1) overlay.removeChild(overlay.lastChild);
+    }
+    Object.keys(geometryByUid).forEach(function(uid) {
+      var item = geometryByUid[uid];
+      if (!item) return;
+      item.row.classList.remove('dependency-row-active', 'dependency-row-related');
+      item.bar.classList.remove('dependency-bar-active', 'dependency-bar-related');
+    });
+  }
+
+  function buildDependencyPath(fromGeom, toGeom, offsetIndex) {
+    var verticalOffset = (offsetIndex - 1.5) * 6;
+    var startX = fromGeom.left + fromGeom.width;
+    var endX = toGeom.left;
+    var startY = fromGeom.centerY + verticalOffset;
+    var endY = toGeom.centerY + verticalOffset;
+    var bend = Math.max(42, Math.abs(endX - startX) * 0.35);
+    var c1x = startX + bend;
+    var c2x = endX - bend;
+    return 'M ' + startX + ' ' + startY + ' C ' + c1x + ' ' + startY + ', ' + c2x + ' ' + endY + ', ' + endX + ' ' + endY;
+  }
+
+  function showDependencyHover(taskUid, dependencies, geometryByUid, overlay) {
+    clearDependencyHover(overlay, geometryByUid);
+    var hovered = geometryByUid[taskUid];
+    if (!hovered) return;
+
+    hovered.row.classList.add('dependency-row-active');
+    hovered.bar.classList.add('dependency-bar-active');
+
+    var visibleLinks = dependencies.filter(function(dep) {
+      if (dep.predecessor_task_uid !== taskUid && dep.successor_task_uid !== taskUid) return false;
+      return geometryByUid[dep.predecessor_task_uid] && geometryByUid[dep.successor_task_uid];
+    });
+
+    visibleLinks.forEach(function(dep, index) {
+      var fromGeom = geometryByUid[dep.predecessor_task_uid];
+      var toGeom = geometryByUid[dep.successor_task_uid];
+      var incoming = dep.successor_task_uid === taskUid;
+      var path = createSvgEl('path');
+      path.setAttribute('class', 'gantt-dependency-link ' + (incoming ? 'incoming' : 'outgoing'));
+      path.setAttribute('d', buildDependencyPath(fromGeom, toGeom, index));
+      path.setAttribute('marker-start', incoming ? 'url(#gantt-dep-dot-incoming)' : 'url(#gantt-dep-dot-outgoing)');
+      path.setAttribute('marker-end', incoming ? 'url(#gantt-dep-arrow-incoming)' : 'url(#gantt-dep-arrow-outgoing)');
+      overlay.appendChild(path);
+
+      fromGeom.row.classList.add('dependency-row-related');
+      fromGeom.bar.classList.add('dependency-bar-related');
+      toGeom.row.classList.add('dependency-row-related');
+      toGeom.bar.classList.add('dependency-bar-related');
+    });
+  }
+
   function ensureTooltip() {
     if (activeTooltip && document.body.contains(activeTooltip)) return activeTooltip;
     activeTooltip = document.createElement('div');
@@ -193,6 +321,7 @@ Gantt.gantt = (function() {
     var c = Gantt.state.getConstants();
     var basePxPerDay = c.PX_PER_DAY;
     var ROW_HEIGHT = c.ROW_HEIGHT;
+    var dependencies = Gantt.state.getDependencies ? Gantt.state.getDependencies() : [];
     var zoom = Gantt.state.getTimelineZoom ? Gantt.state.getTimelineZoom() : 'months';
     if (!el.ganttHeader || !el.ganttBody) return;
 
@@ -262,6 +391,8 @@ Gantt.gantt = (function() {
     el.ganttBody.style.setProperty('--gantt-row-height', ROW_HEIGHT + 'px');
     el.ganttBody.innerHTML = '';
     el.ganttBody.style.minWidth = totalWidth + 'px';
+    var geometryByUid = {};
+    var dependencyOverlay = buildDependencyOverlay(totalWidth, Math.max(tree.length * ROW_HEIGHT, ROW_HEIGHT));
     tree.forEach(function(t) {
       var progress = Math.max(0, Math.min(100, t.progress != null ? t.progress : 0));
       var rag = taskRag[t.uid] || 'none';
@@ -309,8 +440,21 @@ Gantt.gantt = (function() {
       barWrap.appendChild(bar);
       row.appendChild(barWrap);
       row.appendChild(meta);
+      geometryByUid[t.uid] = {
+        row: row,
+        bar: bar,
+        left: left,
+        width: w,
+        centerY: (tree.indexOf(t) * ROW_HEIGHT) + (ROW_HEIGHT / 2)
+      };
       row.addEventListener('click', function() {
         if (onTaskSelect) onTaskSelect(t.uid);
+      });
+      row.addEventListener('mouseenter', function() {
+        showDependencyHover(t.uid, dependencies, geometryByUid, dependencyOverlay);
+      });
+      row.addEventListener('mouseleave', function() {
+        clearDependencyHover(dependencyOverlay, geometryByUid);
       });
       bar.addEventListener('click', function(e) {
         e.stopPropagation();
@@ -321,6 +465,7 @@ Gantt.gantt = (function() {
         if (onTaskOpenDetail) onTaskOpenDetail(t.uid);
       });
       bar.addEventListener('mouseenter', function(e) {
+        showDependencyHover(t.uid, dependencies, geometryByUid, dependencyOverlay);
         showTooltip(e, t, rag, progress);
       });
       bar.addEventListener('mousemove', function(e) {
@@ -328,15 +473,20 @@ Gantt.gantt = (function() {
       });
       bar.addEventListener('mouseleave', hideTooltip);
       bar.addEventListener('focus', function() {
+        showDependencyHover(t.uid, dependencies, geometryByUid, dependencyOverlay);
         var rect = bar.getBoundingClientRect();
         showTooltip({
           clientX: rect.left + Math.min(rect.width / 2, 120),
           clientY: rect.bottom
         }, t, rag, progress);
       });
-      bar.addEventListener('blur', hideTooltip);
+      bar.addEventListener('blur', function() {
+        hideTooltip();
+        clearDependencyHover(dependencyOverlay, geometryByUid);
+      });
       el.ganttBody.appendChild(row);
     });
+    el.ganttBody.appendChild(dependencyOverlay);
   }
 
   return { render: render };
