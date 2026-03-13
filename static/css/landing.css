@@ -1,0 +1,52 @@
+/* ---- Landing page ---- */
+.page-list {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 4rem 1.5rem;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.page-list h1 {
+  font-size: 1.75rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.5rem 0;
+  color: var(--text-primary);
+}
+.page-list .subtitle {
+  color: var(--text-secondary);
+  font-size: 1rem;
+  margin-bottom: 2rem;
+}
+.project-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.project-list > li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.project-list > li:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
+}
+.project-list .name {
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+.project-list .meta {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-top: 0.25rem;
+}
+.project-list .actions { display: flex; gap: 0.5rem; }
+.project-list .btn-primary { padding: 0.6rem 1.25rem; }

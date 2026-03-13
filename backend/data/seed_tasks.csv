@@ -1,0 +1,55 @@
+level,name,description,accountable_person,responsible_party,start_offset_days,end_offset_days,status,progress,sort_order
+1,Equities,Equities data governance and use cases.,Head of Equities,Equities Desk,0,120,in_progress,15,0
+2,CDGP Compliance,CDGP compliance and controls for Equities.,Compliance Lead,Data Governance,0,60,in_progress,20,0
+3,Gap analysis,Identify gaps vs CDGP requirements for Equities.,Compliance,Analyst,0,14,complete,100,0
+4,Gap analysis document,Finalize gap analysis document.,Analyst,Compliance,5,12,complete,100,0
+5,Appendices and evidence links,Collate evidence links into appendices.,Analyst,Compliance,8,11,complete,100,0
+4,Stakeholder review,Review findings with stakeholders.,Compliance Lead,PMO,10,14,complete,100,1
+3,Remediation plan,Document remediation actions and owners.,Compliance Lead,Compliance,10,28,in_progress,40,1
+3,Audit preparation,Prepare evidence and runbooks for audit.,Internal Audit,Compliance,25,45,not_started,0,2
+2,Use Case 1,First use case for Equities data.,Product Owner,Tech Lead,14,70,not_started,0,1
+3,Requirements gathering,Capture business and data requirements.,BA,Product,14,28,not_started,0,0
+4,JAD sessions,Run joint application design sessions.,BA,Stakeholders,14,21,not_started,0,0
+5,Session 1 – data sources,JAD session 1: data sources and lineage.,BA,Data Steward,14,15,not_started,0,0
+5,Session 2 – controls,JAD session 2: controls and quality rules.,BA,Compliance,18,19,not_started,0,1
+4,Requirements sign-off,Get formal sign-off on requirements.,Product Owner,BA,24,28,not_started,0,1
+3,Solution design,Design data flow and controls.,Tech Lead,Architecture,21,42,not_started,0,1
+3,Build and unit test,Implement and unit test.,Dev Lead,Engineering,35,56,not_started,0,2
+2,Use Case 2,Second use case for Equities data.,Product Owner,Tech Lead,21,84,not_started,0,2
+3,Scope and prioritization,Scope and prioritize Use Case 2 deliverables.,Product Owner,BA,21,35,not_started,0,0
+4,Backlog refinement,Refine backlog and estimate.,Tech Lead,Squad,28,32,not_started,0,0
+4,Stakeholder approval,Get stakeholder approval on scope.,Product Owner,PMO,32,35,not_started,0,1
+3,UAT and go-live,User acceptance testing and go-live.,Test Lead,Operations,56,84,not_started,0,1
+2,Use Case 3,Third use case for Equities data.,Product Owner,Tech Lead,28,98,not_started,0,3
+3,Discovery and POC,Discovery phase and proof of concept.,Tech Lead,Engineering,28,49,not_started,0,0
+4,POC report,Document POC findings and recommendation.,Tech Lead,Architecture,42,49,not_started,0,0
+3,Implementation,Full implementation and integration.,Dev Lead,Engineering,42,84,not_started,0,1
+4,Phase 1 – core pipeline,Core pipeline implementation.,Dev Lead,Engineering,42,63,not_started,0,0
+5,Code review and merge,Code review and merge to main.,Tech Lead,Engineering,58,63,not_started,0,0
+1,Commodities,Commodities data governance and use cases.,Head of Commodities,Commodities Desk,7,100,in_progress,10,1
+2,CDGP Compliance,CDGP compliance and controls for Commodities.,Compliance Lead,Data Governance,0,60,in_progress,20,0
+3,Gap analysis,Identify gaps vs CDGP requirements for Commodities.,Compliance,Analyst,0,14,complete,100,0
+4,Gap analysis document,Finalize gap analysis document.,Analyst,Compliance,5,12,complete,100,0
+5,Appendices and evidence links,Collate evidence links into appendices.,Analyst,Compliance,8,11,complete,100,0
+4,Stakeholder review,Review findings with stakeholders.,Compliance Lead,PMO,10,14,complete,100,1
+3,Remediation plan,Document remediation actions and owners.,Compliance Lead,Compliance,10,28,in_progress,40,1
+3,Audit preparation,Prepare evidence and runbooks for audit.,Internal Audit,Compliance,25,45,not_started,0,2
+2,Use Case 1,First use case for Commodities data.,Product Owner,Tech Lead,14,70,not_started,0,1
+3,Requirements gathering,Capture business and data requirements.,BA,Product,14,28,not_started,0,0
+4,JAD sessions,Run joint application design sessions.,BA,Stakeholders,14,21,not_started,0,0
+5,Session 1 – data sources,JAD session 1: data sources and lineage.,BA,Data Steward,14,15,not_started,0,0
+5,Session 2 – controls,JAD session 2: controls and quality rules.,BA,Compliance,18,19,not_started,0,1
+4,Requirements sign-off,Get formal sign-off on requirements.,Product Owner,BA,24,28,not_started,0,1
+3,Solution design,Design data flow and controls.,Tech Lead,Architecture,21,42,not_started,0,1
+3,Build and unit test,Implement and unit test.,Dev Lead,Engineering,35,56,not_started,0,2
+2,Use Case 2,Second use case for Commodities data.,Product Owner,Tech Lead,21,84,not_started,0,2
+3,Scope and prioritization,Scope and prioritize Use Case 2 deliverables.,Product Owner,BA,21,35,not_started,0,0
+4,Backlog refinement,Refine backlog and estimate.,Tech Lead,Squad,28,32,not_started,0,0
+4,Stakeholder approval,Get stakeholder approval on scope.,Product Owner,PMO,32,35,not_started,0,1
+3,UAT and go-live,User acceptance testing and go-live.,Test Lead,Operations,56,84,not_started,0,1
+2,Use Case 3,Third use case for Commodities data.,Product Owner,Tech Lead,28,98,not_started,0,3
+3,Discovery and POC,Discovery phase and proof of concept.,Tech Lead,Engineering,28,49,not_started,0,0
+4,POC report,Document POC findings and recommendation.,Tech Lead,Architecture,42,49,not_started,0,0
+3,Implementation,Full implementation and integration.,Dev Lead,Engineering,42,84,not_started,0,1
+4,Phase 1 – core pipeline,Core pipeline implementation.,Dev Lead,Engineering,42,63,not_started,0,0
+5,Code review and merge,Code review and merge to main.,Tech Lead,Engineering,58,63,not_started,0,0

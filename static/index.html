@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gantt</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/main.css" />
+</head>
+<body>
+  <div class="workspace">
+    <header class="workspace-header">
+      <div class="header-left">
+        <div class="project-heading">
+          <div class="workspace-kicker">Project Plan</div>
+          <h1 id="project-title">Gantt</h1>
+          <div class="project-meta" id="project-meta">Loading project plan...</div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <span class="workspace-mode-indicator" id="workspace-mode-indicator">Read mode</span>
+        <button type="button" class="btn btn-secondary" id="workspace-mode-toggle">Switch to edit</button>
+        <input type="file" id="file-import" accept=".xlsx,.xls" />
+        <button type="button" class="btn btn-secondary" id="btn-import">Import Excel</button>
+        <button type="button" class="btn btn-primary" id="btn-export">Export Excel</button>
+      </div>
+    </header>
+    <div class="workspace-body">
+      <div class="task-panel">
+        <div class="panel-label">
+          <span>Tasks</span>
+          <span class="panel-badge" id="task-count-badge">0</span>
+        </div>
+        <div class="panel-toolbar">
+          <div class="task-toolbar-group">
+            <label for="domain-filter-select" class="task-toolbar-label">Domain</label>
+            <select id="domain-filter-select" class="task-filter-select" aria-label="Filter tasks by domain">
+              <option value="all">All domains</option>
+            </select>
+          </div>
+          <button type="button" class="btn btn-ghost" id="btn-expand-all" title="Expand all">Expand all</button>
+          <button type="button" class="btn btn-ghost" id="btn-collapse-all" title="Collapse all">Collapse all</button>
+        </div>
+        <div class="task-table" id="task-table-wrap">
+          <table>
+            <thead><tr><th>Task</th><th>Accountable</th><th>Responsible</th><th>Start</th><th>End</th><th>RAG</th><th>Status</th><th>%</th><th></th></tr></thead>
+            <tbody id="task-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="gantt-panel">
+        <div class="panel-label">
+          <span>Timeline</span>
+          <span class="panel-badge" id="timeline-summary-badge">Plan view</span>
+        </div>
+        <div class="gantt-toolbar" aria-label="Timeline controls">
+          <div class="gantt-toolbar-group">
+            <label for="gantt-zoom-select" class="gantt-toolbar-label">Zoom</label>
+            <select id="gantt-zoom-select" class="gantt-zoom-select" aria-label="Timeline zoom">
+              <option value="years">Years</option>
+              <option value="quarters">Quarters</option>
+              <option value="months" selected>Months</option>
+              <option value="weeks">Weeks</option>
+              <option value="days">Days</option>
+            </select>
+          </div>
+          <div class="gantt-toolbar-group">
+            <button type="button" class="btn btn-ghost gantt-toolbar-btn" id="gantt-reset-view" title="Center view on today">Reset view</button>
+          </div>
+          <div class="gantt-toolbar-group gantt-date-range-wrap">
+            <span id="gantt-date-range" class="gantt-date-range" aria-label="Timeline date range"></span>
+          </div>
+          <div class="gantt-toolbar-group">
+            <button type="button" class="btn btn-ghost gantt-toolbar-btn gantt-pan-btn" id="gantt-pan-left" title="Move timeline left" aria-label="Pan left">←</button>
+            <button type="button" class="btn btn-ghost gantt-toolbar-btn gantt-pan-btn" id="gantt-pan-right" title="Move timeline right" aria-label="Pan right">→</button>
+          </div>
+        </div>
+        <div class="gantt-scroll-wrap" id="gantt-scroll-wrap">
+          <div class="gantt-timeline-inner" id="gantt-timeline-inner">
+            <div class="gantt-header" id="gantt-header"></div>
+            <div class="gantt-body-viewport" id="gantt-body-viewport">
+              <div class="gantt-body" id="gantt-body"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="workspace-loading" class="workspace-loading">
+      <span class="loading-spinner" style="margin-right:0.5rem"></span> Loading…
+    </div>
+  </div>
+
+  <div id="task-detail-modal" class="task-detail-modal" aria-hidden="true">
+    <div class="task-detail-modal-backdrop"></div>
+    <div class="task-detail-modal-dialog">
+      <header class="task-detail-modal-header">
+        <h2 class="task-detail-modal-title" id="task-detail-modal-title">Edit task</h2>
+        <button type="button" class="btn btn-ghost task-detail-modal-close" id="task-detail-modal-close" aria-label="Close">×</button>
+      </header>
+      <div class="task-detail-modal-body">
+        <div class="detail-content" id="detail-content"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/utils.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/workspace-state.js"></script>
+  <script src="/js/workspace-table.js"></script>
+  <script src="/js/workspace-gantt.js"></script>
+  <script src="/js/workspace-detail.js"></script>
+  <script src="/js/workspace.js"></script>
+  <script>Gantt.workspace.run();</script>
+</body>
+</html>

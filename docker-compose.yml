@@ -1,0 +1,12 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - gantt_data:/data
+      # Mount static files so frontend changes apply without rebuilding
+      - ./static:/app/static:ro
+
+volumes:
+  gantt_data:
