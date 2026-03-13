@@ -34,7 +34,7 @@ def export_project_to_xlsx(project_uid: str) -> str | None:
         comments = []
         risks = []
         for t in tasks:
-            rag.extend([dict(r) for r in conn.execute("SELECT uid, task_uid, status, rationale, created_at FROM rag_statuses WHERE task_uid = ?", (t["uid"],)).fetchall()])
+            rag.extend([dict(r) for r in conn.execute("SELECT uid, task_uid, status, rationale, path_to_green, created_at FROM rag_statuses WHERE task_uid = ?", (t["uid"],)).fetchall()])
             comments.extend([dict(r) for r in conn.execute("SELECT uid, task_uid, author, comment_text, created_at FROM comments WHERE task_uid = ?", (t["uid"],)).fetchall()])
             risks.extend([dict(r) for r in conn.execute("SELECT uid, task_uid, title, description, severity, status, owner, mitigation_plan, created_at, updated_at FROM risks WHERE task_uid = ?", (t["uid"],)).fetchall()])
 
@@ -65,9 +65,9 @@ def export_project_to_xlsx(project_uid: str) -> str | None:
 
     # RAG
     ws_rag = wb.create_sheet("RAG Status History")
-    ws_rag.append(["RAG UID", "Task UID", "Status", "Rationale", "Created At"])
+    ws_rag.append(["RAG UID", "Task UID", "Status", "Rationale", "Path To Green", "Created At"])
     for r in rag:
-        ws_rag.append([r["uid"], r["task_uid"], r["status"], r["rationale"] or "", r["created_at"]])
+        ws_rag.append([r["uid"], r["task_uid"], r["status"], r["rationale"] or "", r.get("path_to_green") or "", r["created_at"]])
 
     # Comments
     ws_com = wb.create_sheet("Comments")
@@ -156,7 +156,12 @@ def import_xlsx(content: bytes) -> dict:
                 "task_uid": str(row[1]).strip(),
                 "status": str(row[2]).strip(),
                 "rationale": str(row[3]) if len(row) > 3 and row[3] else "",
-                "created_at": str(row[4]) if len(row) > 4 and row[4] else datetime.utcnow().isoformat() + "Z",
+                "path_to_green": str(row[4]) if len(row) > 5 and row[4] else "",
+                "created_at": (
+                    str(row[5]) if len(row) > 5 and row[5]
+                    else str(row[4]) if len(row) > 4 and row[4]
+                    else datetime.utcnow().isoformat() + "Z"
+                ),
             })
 
     ws_com = get_sheet("Comments")
@@ -208,7 +213,10 @@ def import_xlsx(content: bytes) -> dict:
                 (d["uid"], d["project_uid"], d["predecessor_task_uid"], d["successor_task_uid"], d["dependency_type"], d["created_at"]),
             )
         for r in rag:
-            conn.execute("INSERT OR REPLACE INTO rag_statuses (uid, task_uid, status, rationale, created_at) VALUES (?, ?, ?, ?, ?)", (r["uid"], r["task_uid"], r["status"], r["rationale"], r["created_at"]))
+            conn.execute(
+                "INSERT OR REPLACE INTO rag_statuses (uid, task_uid, status, rationale, path_to_green, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                (r["uid"], r["task_uid"], r["status"], r["rationale"], r.get("path_to_green", ""), r["created_at"])
+            )
         for c in comments:
             conn.execute("INSERT OR REPLACE INTO comments (uid, task_uid, author, comment_text, created_at) VALUES (?, ?, ?, ?, ?)", (c["uid"], c["task_uid"], c["author"], c["comment_text"], c["created_at"]))
         for r in risks:

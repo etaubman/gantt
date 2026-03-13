@@ -50,6 +50,7 @@ class TaskUpdate(BaseModel):
 class RAGCreate(BaseModel):
     status: str  # green, amber, red
     rationale: Optional[str] = None
+    path_to_green: Optional[str] = None
 
 class CommentCreate(BaseModel):
     author: str
@@ -277,7 +278,7 @@ def list_rag(task_uid: str):
         if conn.execute("SELECT uid FROM tasks WHERE uid = ?", (task_uid,)).fetchone() is None:
             raise HTTPException(404, "Task not found")
         cur = conn.execute(
-            "SELECT uid, task_uid, status, rationale, created_at FROM rag_statuses WHERE task_uid = ? ORDER BY created_at ASC",
+            "SELECT uid, task_uid, status, rationale, path_to_green, created_at FROM rag_statuses WHERE task_uid = ? ORDER BY created_at ASC",
             (task_uid,),
         )
         return [dict(r) for r in cur.fetchall()]
@@ -295,10 +296,17 @@ def create_rag(task_uid: str, body: RAGCreate):
         uid = str(uuid.uuid4())
         now = _now()
         conn.execute(
-            "INSERT INTO rag_statuses (uid, task_uid, status, rationale, created_at) VALUES (?, ?, ?, ?, ?)",
-            (uid, task_uid, body.status, (body.rationale or "").strip(), now),
+            "INSERT INTO rag_statuses (uid, task_uid, status, rationale, path_to_green, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (uid, task_uid, body.status, (body.rationale or "").strip(), (body.path_to_green or "").strip(), now),
         )
-    return {"uid": uid, "task_uid": task_uid, "status": body.status, "rationale": body.rationale or "", "created_at": now}
+    return {
+        "uid": uid,
+        "task_uid": task_uid,
+        "status": body.status,
+        "rationale": body.rationale or "",
+        "path_to_green": body.path_to_green or "",
+        "created_at": now,
+    }
 
 
 # --- Comments ---

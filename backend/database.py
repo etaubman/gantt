@@ -47,6 +47,7 @@ def init_db():
                 task_uid TEXT NOT NULL REFERENCES tasks(uid) ON DELETE CASCADE,
                 status TEXT NOT NULL,
                 rationale TEXT,
+                path_to_green TEXT,
                 created_at TEXT NOT NULL
             );
 
@@ -78,6 +79,9 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_comments_task ON comments(task_uid);
             CREATE INDEX IF NOT EXISTS idx_risks_task ON risks(task_uid);
         """)
+        rag_columns = {row["name"] for row in conn.execute("PRAGMA table_info(rag_statuses)").fetchall()}
+        if "path_to_green" not in rag_columns:
+            conn.execute("ALTER TABLE rag_statuses ADD COLUMN path_to_green TEXT")
 
 
 @contextmanager
