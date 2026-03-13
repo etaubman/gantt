@@ -7,6 +7,9 @@ Gantt.table = (function() {
 
   function render(visibleTree, taskRag, selectedTaskUid, hasChildren, isExpanded, onRowSelect, onToggle, onOpenDetail, onAddSubtask) {
     var el = Gantt.state.getEl();
+    var isEditable = Gantt.state.isEditMode();
+    var disabledAttr = isEditable ? '' : ' disabled';
+    var bindRagTooltip = Gantt.ragTooltip && Gantt.ragTooltip.bind;
     if (!el.taskTbody) return;
     el.taskTbody.innerHTML = visibleTree.map(function(t) {
       var rag = taskRag[t.uid] || 'none';
@@ -30,7 +33,7 @@ Gantt.table = (function() {
         '<td><span class="person-chip">' + escapeHtml(t.responsible_party || 'Unassigned') + '</span></td>' +
         '<td>' + shortDate(t.start_date) + '</td>' +
         '<td>' + shortDate(t.end_date) + '</td>' +
-        '<td><span class="rag-badge-table ' + rag + '">' + escapeHtml(rag === 'none' ? '—' : titleCaseStatus(rag)) + '</span></td>' +
+        '<td><span class="rag-badge-table rag-tooltip-anchor ' + rag + '" data-task-uid="' + escapeHtml(t.uid) + '" data-task-name="' + escapeHtml(t.name) + '" tabindex="0">' + escapeHtml(rag === 'none' ? '—' : titleCaseStatus(rag)) + '</span></td>' +
         '<td><span class="status-badge status-' + escapeHtml(t.status || 'not_started') + '">' + escapeHtml(titleCaseStatus(t.status || 'not_started')) + '</span></td>' +
         '<td>' +
           '<div class="table-progress" aria-label="Progress ' + progress + ' percent">' +
@@ -39,7 +42,7 @@ Gantt.table = (function() {
           '</div>' +
         '</td>' +
         '<td class="task-row-actions">' +
-          '<button type="button" class="btn-row-action btn-add-subtask-row" data-uid="' + escapeHtml(t.uid) + '" title="Add subtask">+</button>' +
+          '<button type="button" class="btn-row-action btn-add-subtask-row" data-uid="' + escapeHtml(t.uid) + '" title="' + (isEditable ? 'Add subtask' : 'Switch to edit mode to add subtasks') + '"' + disabledAttr + '>+</button>' +
           '<button type="button" class="btn-row-action btn-open-task" data-uid="' + escapeHtml(t.uid) + '" title="Open task">Open</button>' +
         '</td>' +
       '</tr>';
@@ -68,6 +71,15 @@ Gantt.table = (function() {
         if (onAddSubtask) onAddSubtask(uid);
       });
     });
+
+    if (bindRagTooltip) {
+      el.taskTbody.querySelectorAll('.rag-tooltip-anchor[data-task-uid]').forEach(function(anchor) {
+        bindRagTooltip(anchor, {
+          taskUid: anchor.getAttribute('data-task-uid'),
+          taskName: anchor.getAttribute('data-task-name')
+        });
+      });
+    }
 
     el.taskTbody.querySelectorAll('tr').forEach(function(tr) {
       tr.addEventListener('click', function(e) {

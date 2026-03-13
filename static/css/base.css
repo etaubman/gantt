@@ -111,6 +111,17 @@ button {
   font: inherit;
 }
 
+select {
+  background-color: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+select option,
+select optgroup {
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+}
+
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;

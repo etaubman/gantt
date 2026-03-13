@@ -5,6 +5,7 @@ Gantt.gantt = (function() {
   var escapeHtml = function(s) { return Gantt.utils.escapeHtml(s); };
   var prettyDate = function(d) { return Gantt.utils.prettyDate(d); };
   var titleCaseStatus = function(status) { return Gantt.utils.titleCaseStatus(status); };
+  var activeTooltip = null;
 
   function dateAtStart(d) {
     return new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -123,6 +124,55 @@ Gantt.gantt = (function() {
     });
   }
 
+  function ensureTooltip() {
+    if (activeTooltip && document.body.contains(activeTooltip)) return activeTooltip;
+    activeTooltip = document.createElement('div');
+    activeTooltip.className = 'gantt-super-tooltip';
+    activeTooltip.hidden = true;
+    document.body.appendChild(activeTooltip);
+    return activeTooltip;
+  }
+
+  function positionTooltip(tooltip, event) {
+    if (!tooltip || !event) return;
+    var offset = 14;
+    var maxLeft = Math.max(8, window.innerWidth - tooltip.offsetWidth - 8);
+    var maxTop = Math.max(8, window.innerHeight - tooltip.offsetHeight - 8);
+    var left = Math.min(maxLeft, event.clientX + offset);
+    var top = Math.min(maxTop, event.clientY + offset);
+    if (left < 8) left = 8;
+    if (top < 8) top = 8;
+    tooltip.style.left = left + 'px';
+    tooltip.style.top = top + 'px';
+  }
+
+  function hideTooltip() {
+    var tooltip = ensureTooltip();
+    tooltip.hidden = true;
+    tooltip.innerHTML = '';
+  }
+
+  function showTooltip(event, task, rag, progress) {
+    var tooltip = ensureTooltip();
+    var description = task.description || 'No description';
+    var dateLabel = (task.start_date && task.end_date)
+      ? (prettyDate(task.start_date) + ' - ' + prettyDate(task.end_date))
+      : 'Unscheduled';
+    tooltip.innerHTML =
+      '<div class="gantt-super-tooltip-title">' + escapeHtml(task.name) + '</div>' +
+      '<div class="gantt-super-tooltip-desc">' + escapeHtml(description) + '</div>' +
+      '<div class="gantt-super-tooltip-grid">' +
+        '<div class="gantt-super-tooltip-label">Status</div><div class="gantt-super-tooltip-value">' + escapeHtml(titleCaseStatus(task.status || 'not_started')) + '</div>' +
+        '<div class="gantt-super-tooltip-label">RAG</div><div class="gantt-super-tooltip-value">' + escapeHtml(titleCaseStatus(rag)) + '</div>' +
+        '<div class="gantt-super-tooltip-label">Progress</div><div class="gantt-super-tooltip-value">' + progress + '%</div>' +
+        '<div class="gantt-super-tooltip-label">Dates</div><div class="gantt-super-tooltip-value">' + escapeHtml(dateLabel) + '</div>' +
+        '<div class="gantt-super-tooltip-label">Accountable</div><div class="gantt-super-tooltip-value">' + escapeHtml(task.accountable_person || 'Unassigned') + '</div>' +
+        '<div class="gantt-super-tooltip-label">Responsible</div><div class="gantt-super-tooltip-value">' + escapeHtml(task.responsible_party || 'Unassigned') + '</div>' +
+      '</div>';
+    tooltip.hidden = false;
+    positionTooltip(tooltip, event);
+  }
+
   function render(tree, taskRag, selectedTaskUid, onTaskSelect, onTaskOpenDetail) {
     var el = Gantt.state.getEl();
     var c = Gantt.state.getConstants();
@@ -192,16 +242,6 @@ Gantt.gantt = (function() {
     tree.forEach(function(t) {
       var progress = Math.max(0, Math.min(100, t.progress != null ? t.progress : 0));
       var rag = taskRag[t.uid] || 'none';
-      var tooltipLines = [
-        t.name,
-        t.description || 'No description',
-        'Status: ' + titleCaseStatus(t.status || 'not_started'),
-        'RAG: ' + titleCaseStatus(rag),
-        'Progress: ' + progress + '%',
-        'Accountable: ' + (t.accountable_person || 'Unassigned'),
-        'Responsible: ' + (t.responsible_party || 'Unassigned'),
-        'Dates: ' + ((t.start_date && t.end_date) ? (prettyDate(t.start_date) + ' - ' + prettyDate(t.end_date)) : 'Unscheduled')
-      ];
       var row = document.createElement('div');
       row.className = 'gantt-row' + (selectedTaskUid === t.uid ? ' selected' : '');
       row.style.height = ROW_HEIGHT + 'px';
@@ -229,7 +269,6 @@ Gantt.gantt = (function() {
       bar.innerHTML =
         '<span class="bar-label">' + escapeHtml(t.name) + '</span>' +
         '<span class="bar-meta">' + progress + '%</span>';
-      bar.setAttribute('title', tooltipLines.join('\n'));
       bar.setAttribute('aria-label', t.name + ', ' + titleCaseStatus(t.status || 'not_started') + ', ' + progress + ' percent');
       if (progress > 0) {
         var progressEl = document.createElement('div');
@@ -258,6 +297,21 @@ Gantt.gantt = (function() {
         e.stopPropagation();
         if (onTaskOpenDetail) onTaskOpenDetail(t.uid);
       });
+      bar.addEventListener('mouseenter', function(e) {
+        showTooltip(e, t, rag, progress);
+      });
+      bar.addEventListener('mousemove', function(e) {
+        positionTooltip(ensureTooltip(), e);
+      });
+      bar.addEventListener('mouseleave', hideTooltip);
+      bar.addEventListener('focus', function() {
+        var rect = bar.getBoundingClientRect();
+        showTooltip({
+          clientX: rect.left + Math.min(rect.width / 2, 120),
+          clientY: rect.bottom
+        }, t, rag, progress);
+      });
+      bar.addEventListener('blur', hideTooltip);
       el.ganttBody.appendChild(row);
     });
   }

@@ -82,6 +82,10 @@
   background: rgba(97, 168, 255, 0.12);
   color: #a9d1ff;
 }
+.task-detail-modal .summary-chip-mode {
+  background: rgba(255,255,255,0.05);
+  color: var(--text-secondary);
+}
 .task-detail-modal .detail-tabs {
   display: flex;
   gap: 0.5rem;

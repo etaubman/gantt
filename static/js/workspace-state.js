@@ -9,8 +9,8 @@ Gantt.state = (function() {
   let taskRag = {};
   let selectedTaskUid = null;
   let collapsedSet = {};
-  let editMode = window.localStorage.getItem(MODE_STORAGE_KEY) === 'edit';
   let employeeId = window.localStorage.getItem(EMPLOYEE_ID_STORAGE_KEY) || '';
+  let editMode = window.localStorage.getItem(MODE_STORAGE_KEY) === 'edit' && !!employeeId;
   let selectedDomainUid = 'all';
 
   const ZOOM_PX_PER_DAY = { years: 1, quarters: 2, months: 4, weeks: 8, days: 16 };
