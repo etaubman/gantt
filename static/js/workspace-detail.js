@@ -58,9 +58,10 @@ Gantt.detail = (function() {
     el.detailContent.innerHTML =
       '<div class="detail-topbar">' +
         '<div class="detail-summary">' +
+          (task.is_milestone ? '<span class="summary-chip summary-chip-milestone">Milestone</span>' : '') +
           '<span class="summary-chip">' + escapeHtml(task.accountable_person || 'No accountable') + '</span>' +
           '<span class="summary-chip">' + escapeHtml(task.responsible_party || 'No responsible') + '</span>' +
-          '<span class="summary-chip">' + escapeHtml(prettyDate(task.start_date)) + ' - ' + escapeHtml(prettyDate(task.end_date)) + '</span>' +
+          '<span class="summary-chip">' + escapeHtml(task.is_milestone ? prettyDate(task.start_date || task.end_date) : (prettyDate(task.start_date) + ' - ' + prettyDate(task.end_date))) + '</span>' +
           '<span class="summary-chip summary-chip-status">' + escapeHtml(titleCaseStatus(task.status || 'not_started')) + ' • ' + (task.progress != null ? task.progress : 0) + '%</span>' +
           '<span class="summary-chip summary-chip-mode">' + (isEditable ? ('Edit mode' + (employeeId ? ' • ' + escapeHtml(employeeId) : '')) : 'Read mode') + '</span>' +
         '</div>' +
@@ -90,9 +91,13 @@ Gantt.detail = (function() {
             '<div class="field"><label>Accountable</label><input type="text" id="detail-accountable" value="' + escapeHtml(task.accountable_person) + '"' + disabledAttr + ' /></div>' +
             '<div class="field"><label>Responsible</label><input type="text" id="detail-responsible" value="' + escapeHtml(task.responsible_party) + '"' + disabledAttr + ' /></div>' +
           '</div>' +
+          '<label class="detail-toggle-row">' +
+            '<input type="checkbox" id="detail-is-milestone"' + (task.is_milestone ? ' checked' : '') + disabledAttr + ' />' +
+            '<span>Render as milestone on the timeline</span>' +
+          '</label>' +
           '<div class="form-row">' +
-            '<div class="field"><label>Start date</label><input type="date" id="detail-start" value="' + dateStr(task.start_date) + '"' + disabledAttr + ' /></div>' +
-            '<div class="field"><label>End date</label><input type="date" id="detail-end" value="' + dateStr(task.end_date) + '"' + disabledAttr + ' /></div>' +
+            '<div class="field"><label>' + (task.is_milestone ? 'Milestone date' : 'Start date') + '</label><input type="date" id="detail-start" value="' + dateStr(task.start_date) + '"' + disabledAttr + ' /></div>' +
+            '<div class="field"><label>' + (task.is_milestone ? 'Mirror date' : 'End date') + '</label><input type="date" id="detail-end" value="' + dateStr(task.end_date) + '"' + disabledAttr + ' /></div>' +
           '</div>' +
         '</div>' +
       '</div>' +
@@ -208,13 +213,22 @@ Gantt.detail = (function() {
     // Save task
     document.getElementById('detail-save').addEventListener('click', function() {
       if (!workspace || !workspace.ensureEditAccess) return;
+      var isMilestone = document.getElementById('detail-is-milestone').checked;
+      var startDate = document.getElementById('detail-start').value || null;
+      var endDate = document.getElementById('detail-end').value || null;
+      if (isMilestone) {
+        if (startDate && !endDate) endDate = startDate;
+        if (!startDate && endDate) startDate = endDate;
+        if (startDate && endDate && startDate !== endDate) endDate = startDate;
+      }
       var payload = {
         name: document.getElementById('detail-name').value.trim(),
         description: document.getElementById('detail-desc').value.trim(),
         accountable_person: document.getElementById('detail-accountable').value.trim(),
         responsible_party: document.getElementById('detail-responsible').value.trim(),
-        start_date: document.getElementById('detail-start').value || null,
-        end_date: document.getElementById('detail-end').value || null,
+        start_date: startDate,
+        end_date: endDate,
+        is_milestone: isMilestone,
         status: document.getElementById('detail-status').value,
         progress: parseInt(document.getElementById('detail-progress').value, 10) || 0
       };

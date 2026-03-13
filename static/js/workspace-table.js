@@ -13,6 +13,7 @@ Gantt.table = (function() {
     if (!el.taskTbody) return;
     el.taskTbody.innerHTML = visibleTree.map(function(t) {
       var rag = taskRag[t.uid] || 'none';
+      var milestoneMarker = t.is_milestone ? '<span class="task-milestone-marker" aria-hidden="true"></span>' : '';
       var indent = 'indent-' + Math.min(t.depth, 3);
       var expanded = isExpanded(t.uid);
       var hasKids = hasChildren[t.uid];
@@ -25,6 +26,7 @@ Gantt.table = (function() {
         '<td class="' + indent + '">' +
           '<div class="task-cell-main">' +
             '<span class="' + toggleClass + '" data-uid="' + escapeHtml(t.uid) + '" data-has-children="' + (hasKids ? '1' : '0') + '" title="' + escapeHtml(toggleTitle) + '" aria-label="' + escapeHtml(toggleTitle) + '">' + toggleChar + '</span>' +
+            milestoneMarker +
             '<span class="rag-dot ' + rag + '" aria-hidden="true"></span>' +
             '<div class="task-name" title="' + escapeHtml(description) + '">' + escapeHtml(t.name) + '</div>' +
           '</div>' +

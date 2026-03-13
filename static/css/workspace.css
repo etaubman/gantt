@@ -267,6 +267,17 @@
   min-width: 0;
 }
 
+.task-milestone-marker {
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, #ffe08a 0%, #c9970a 100%);
+  border: 1px solid rgba(255,255,255,0.3);
+  transform: rotate(45deg);
+  border-radius: 2px;
+  box-shadow: 0 0 0 3px rgba(201, 151, 10, 0.08);
+}
+
 .task-name {
   min-width: 0;
   font-weight: 600;
@@ -775,6 +786,45 @@
 .gantt-row .bar-unscheduled {
   border-style: dashed;
   background: linear-gradient(90deg, #3d475a 0%, #53637a 100%);
+}
+
+.gantt-row .bar.milestone {
+  min-width: 18px;
+  min-height: 18px;
+  padding: 0;
+  border-radius: 4px;
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  overflow: visible;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.2);
+}
+
+.gantt-row .bar.milestone .bar-milestone-core {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.gantt-row .bar.milestone.rag-green { background: linear-gradient(135deg, #167337 0%, #24a34c 100%); }
+.gantt-row .bar.milestone.rag-amber { background: linear-gradient(135deg, #8e6300 0%, #c9970a 100%); }
+.gantt-row .bar.milestone.rag-red { background: linear-gradient(135deg, #902a2a 0%, #c93a3a 100%); }
+.gantt-row .bar.milestone.rag-none { background: linear-gradient(135deg, #415066 0%, #5b6f8f 100%); }
+
+.gantt-row .bar.milestone.bar-unscheduled {
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+}
+
+.gantt-milestone-label {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  max-width: 180px;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
 }
 
 .gantt-row .bar-progress {

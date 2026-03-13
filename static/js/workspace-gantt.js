@@ -299,12 +299,13 @@ Gantt.gantt = (function() {
     var tooltip = ensureTooltip();
     var description = task.description || 'No description';
     var dateLabel = (task.start_date && task.end_date)
-      ? (prettyDate(task.start_date) + ' - ' + prettyDate(task.end_date))
+      ? (task.is_milestone ? prettyDate(task.start_date) : (prettyDate(task.start_date) + ' - ' + prettyDate(task.end_date)))
       : 'Unscheduled';
     tooltip.innerHTML =
       '<div class="gantt-super-tooltip-title">' + escapeHtml(task.name) + '</div>' +
       '<div class="gantt-super-tooltip-desc">' + escapeHtml(description) + '</div>' +
       '<div class="gantt-super-tooltip-grid">' +
+        '<div class="gantt-super-tooltip-label">Type</div><div class="gantt-super-tooltip-value">' + (task.is_milestone ? 'Milestone' : 'Task') + '</div>' +
         '<div class="gantt-super-tooltip-label">Status</div><div class="gantt-super-tooltip-value">' + escapeHtml(titleCaseStatus(task.status || 'not_started')) + '</div>' +
         '<div class="gantt-super-tooltip-label">RAG</div><div class="gantt-super-tooltip-value">' + escapeHtml(titleCaseStatus(rag)) + '</div>' +
         '<div class="gantt-super-tooltip-label">Progress</div><div class="gantt-super-tooltip-value">' + progress + '%</div>' +
@@ -393,9 +394,10 @@ Gantt.gantt = (function() {
     el.ganttBody.style.minWidth = totalWidth + 'px';
     var geometryByUid = {};
     var dependencyOverlay = buildDependencyOverlay(totalWidth, Math.max(tree.length * ROW_HEIGHT, ROW_HEIGHT));
-    tree.forEach(function(t) {
+    tree.forEach(function(t, index) {
       var progress = Math.max(0, Math.min(100, t.progress != null ? t.progress : 0));
       var rag = taskRag[t.uid] || 'none';
+      var isMilestone = !!t.is_milestone;
       var row = document.createElement('div');
       row.className = 'gantt-row' + (selectedTaskUid === t.uid ? ' selected' : '');
       row.style.height = ROW_HEIGHT + 'px';
@@ -410,32 +412,51 @@ Gantt.gantt = (function() {
         var start = new Date(t.start_date);
         var end = new Date(t.end_date);
         left = Math.max(0, (dateAtStart(start) - minDateStart) / dayMs) * pxPerDay;
-        w = Math.max(12, (Math.max(1, Math.round((dateAtStart(end) - dateAtStart(start)) / dayMs) + 1)) * pxPerDay);
+        w = isMilestone
+          ? Math.max(18, Math.min(24, pxPerDay * 0.9))
+          : Math.max(12, (Math.max(1, Math.round((dateAtStart(end) - dateAtStart(start)) / dayMs) + 1)) * pxPerDay);
       } else {
         left = 0;
-        w = Math.max(48, pxPerDay * 7);
+        w = isMilestone ? 18 : Math.max(48, pxPerDay * 7);
       }
       var bar = document.createElement('button');
-      bar.className = 'bar rag-' + rag;
+      bar.className = 'bar rag-' + rag + (isMilestone ? ' milestone' : '');
       bar.type = 'button';
-      bar.style.left = left + 'px';
-      bar.style.width = w + 'px';
-      bar.innerHTML =
-        '<span class="bar-label">' + escapeHtml(t.name) + '</span>' +
-        '<span class="bar-meta">' + progress + '%</span>';
-      bar.setAttribute('aria-label', t.name + ', ' + titleCaseStatus(t.status || 'not_started') + ', ' + progress + ' percent');
-      if (progress > 0) {
+      if (isMilestone) {
+        var milestoneCenter = left + (pxPerDay / 2);
+        bar.style.left = Math.max(0, milestoneCenter - (w / 2)) + 'px';
+        bar.style.width = w + 'px';
+        bar.style.height = w + 'px';
+        bar.style.top = Math.max(4, (ROW_HEIGHT - w) / 2) + 'px';
+        bar.innerHTML = '<span class="bar-milestone-core" aria-hidden="true"></span>';
+      } else {
+        bar.style.left = left + 'px';
+        bar.style.width = w + 'px';
+        bar.innerHTML =
+          '<span class="bar-label">' + escapeHtml(t.name) + '</span>' +
+          '<span class="bar-meta">' + progress + '%</span>';
+      }
+      bar.setAttribute('aria-label', t.name + ', ' + (isMilestone ? 'milestone, ' : '') + titleCaseStatus(t.status || 'not_started') + ', ' + progress + ' percent');
+      if (!isMilestone && progress > 0) {
         var progressEl = document.createElement('div');
         progressEl.className = 'bar-progress';
         progressEl.style.width = progress + '%';
         bar.appendChild(progressEl);
       }
       if (!t.start_date || !t.end_date) bar.classList.add('bar-unscheduled');
+      if (isMilestone) {
+        var milestoneLabel = document.createElement('div');
+        milestoneLabel.className = 'gantt-milestone-label';
+        milestoneLabel.textContent = t.name;
+        milestoneLabel.style.left = (parseFloat(bar.style.left) + w + 10) + 'px';
+        milestoneLabel.title = t.name;
+        barWrap.appendChild(milestoneLabel);
+      }
       var meta = document.createElement('div');
       meta.className = 'gantt-row-meta';
       meta.textContent = (t.start_date && t.end_date)
-        ? prettyDate(t.start_date) + ' - ' + prettyDate(t.end_date)
-        : 'Unscheduled task';
+        ? (isMilestone ? prettyDate(t.start_date) : prettyDate(t.start_date) + ' - ' + prettyDate(t.end_date))
+        : (isMilestone ? 'Unscheduled milestone' : 'Unscheduled task');
       meta.title = meta.textContent;
       barWrap.appendChild(bar);
       row.appendChild(barWrap);
@@ -443,9 +464,9 @@ Gantt.gantt = (function() {
       geometryByUid[t.uid] = {
         row: row,
         bar: bar,
-        left: left,
+        left: parseFloat(bar.style.left) || left,
         width: w,
-        centerY: (tree.indexOf(t) * ROW_HEIGHT) + (ROW_HEIGHT / 2)
+        centerY: (index * ROW_HEIGHT) + (ROW_HEIGHT / 2)
       };
       row.addEventListener('click', function() {
         if (onTaskSelect) onTaskSelect(t.uid);

@@ -26,6 +26,7 @@ def init_db():
                 responsible_party TEXT,
                 start_date TEXT,
                 end_date TEXT,
+                is_milestone INTEGER DEFAULT 0,
                 status TEXT DEFAULT 'not_started',
                 progress INTEGER DEFAULT 0,
                 sort_order INTEGER DEFAULT 0,
@@ -82,6 +83,9 @@ def init_db():
         rag_columns = {row["name"] for row in conn.execute("PRAGMA table_info(rag_statuses)").fetchall()}
         if "path_to_green" not in rag_columns:
             conn.execute("ALTER TABLE rag_statuses ADD COLUMN path_to_green TEXT")
+        task_columns = {row["name"] for row in conn.execute("PRAGMA table_info(tasks)").fetchall()}
+        if "is_milestone" not in task_columns:
+            conn.execute("ALTER TABLE tasks ADD COLUMN is_milestone INTEGER DEFAULT 0")
 
 
 @contextmanager

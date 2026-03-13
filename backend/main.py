@@ -32,6 +32,7 @@ class TaskCreate(BaseModel):
     responsible_party: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
+    is_milestone: bool = False
     status: str = "not_started"
     progress: int = Field(0, ge=0, le=100)
     sort_order: int = 0
@@ -43,6 +44,7 @@ class TaskUpdate(BaseModel):
     responsible_party: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
+    is_milestone: Optional[bool] = None
     status: Optional[str] = None
     progress: Optional[int] = Field(None, ge=0, le=100)
     sort_order: Optional[int] = None
@@ -84,6 +86,12 @@ def _now() -> str:
 
 def _row_to_dict(row) -> dict:
     return dict(row) if row else None
+
+
+def _normalize_task_dict(row) -> dict:
+    task = dict(row)
+    task["is_milestone"] = bool(task.get("is_milestone"))
+    return task
 
 
 # --- Projects ---
@@ -153,11 +161,11 @@ def list_tasks(project_uid: str):
             raise HTTPException(404, "Project not found")
         cur = conn.execute(
             """SELECT uid, project_uid, parent_task_uid, name, description, accountable_person,
-                     responsible_party, start_date, end_date, status, progress, sort_order, created_at, updated_at
+                     responsible_party, start_date, end_date, is_milestone, status, progress, sort_order, created_at, updated_at
               FROM tasks WHERE project_uid = ? ORDER BY sort_order, created_at""",
             (project_uid,),
         )
-        tasks = [dict(r) for r in cur.fetchall()]
+        tasks = [_normalize_task_dict(r) for r in cur.fetchall()]
     return tasks
 
 
@@ -182,19 +190,19 @@ def create_task(project_uid: str, body: TaskCreate):
         now = _now()
         conn.execute(
             """INSERT INTO tasks (uid, project_uid, parent_task_uid, name, description,
-               accountable_person, responsible_party, start_date, end_date, status, progress, sort_order, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               accountable_person, responsible_party, start_date, end_date, is_milestone, status, progress, sort_order, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 uid, project_uid, body.parent_task_uid, body.name.strip(), body.description or "",
                 body.accountable_person or "", body.responsible_party or "",
-                body.start_date, body.end_date, body.status, body.progress, body.sort_order,
+                body.start_date, body.end_date, int(body.is_milestone), body.status, body.progress, body.sort_order,
                 now, now,
             ),
         )
     return {"uid": uid, "project_uid": project_uid, "parent_task_uid": body.parent_task_uid,
             "name": body.name.strip(), "description": body.description or "",
             "accountable_person": body.accountable_person or "", "responsible_party": body.responsible_party or "",
-            "start_date": body.start_date, "end_date": body.end_date, "status": body.status,
+            "start_date": body.start_date, "end_date": body.end_date, "is_milestone": body.is_milestone, "status": body.status,
             "progress": body.progress, "sort_order": body.sort_order, "created_at": now, "updated_at": now}
 
 
@@ -209,13 +217,13 @@ def get_task(uid: str):
     with get_conn() as conn:
         row = conn.execute(
             """SELECT uid, project_uid, parent_task_uid, name, description, accountable_person,
-                      responsible_party, start_date, end_date, status, progress, sort_order, created_at, updated_at
+                      responsible_party, start_date, end_date, is_milestone, status, progress, sort_order, created_at, updated_at
                FROM tasks WHERE uid = ?""",
             (uid,),
         ).fetchone()
     if not row:
         raise HTTPException(404, "Task not found")
-    return dict(row)
+    return _normalize_task_dict(row)
 
 
 @app.patch("/api/tasks/{uid}")
@@ -224,7 +232,7 @@ def update_task(uid: str, body: TaskUpdate):
     values = []
     for k, v in body.model_dump(exclude_unset=True).items():
         updates.append(f"{k} = ?")
-        values.append(v)
+        values.append(int(v) if k == "is_milestone" else v)
     if not updates:
         return get_task(uid)
     values.append(_now())
@@ -238,7 +246,7 @@ def update_task(uid: str, body: TaskUpdate):
         row = conn.execute("SELECT * FROM tasks WHERE uid = ?", (uid,)).fetchone()
     if not row:
         raise HTTPException(404, "Task not found")
-    return dict(row)
+    return _normalize_task_dict(row)
 
 
 @app.delete("/api/tasks/{uid}", status_code=204)

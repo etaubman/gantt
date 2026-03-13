@@ -14,6 +14,16 @@ SCHEMA_VERSION = "1"
 APP_VERSION = "1.0.0"
 
 
+def _as_bool(value) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    if isinstance(value, (int, float)):
+        return value != 0
+    return str(value).strip().lower() in ("1", "true", "yes", "y")
+
+
 def export_project_to_xlsx(project_uid: str) -> str | None:
     """Export one project (and its data) to an xlsx file. Returns file path or None if project not found."""
     with get_conn() as conn:
@@ -22,7 +32,7 @@ def export_project_to_xlsx(project_uid: str) -> str | None:
             return None
         projects = [dict(proj)]
         tasks = [dict(r) for r in conn.execute(
-            "SELECT uid, project_uid, parent_task_uid, name, description, accountable_person, responsible_party, start_date, end_date, status, progress, sort_order, created_at, updated_at FROM tasks WHERE project_uid = ?",
+            "SELECT uid, project_uid, parent_task_uid, name, description, accountable_person, responsible_party, start_date, end_date, is_milestone, status, progress, sort_order, created_at, updated_at FROM tasks WHERE project_uid = ?",
             (project_uid,),
         ).fetchall()]
         task_uids = {t["uid"] for t in tasks}
@@ -53,9 +63,9 @@ def export_project_to_xlsx(project_uid: str) -> str | None:
 
     # Tasks
     ws_tasks = wb.create_sheet("Tasks")
-    ws_tasks.append(["Task UID", "Project UID", "Parent Task UID", "Name", "Description", "Accountable Person", "Responsible Party", "Start Date", "End Date", "Status", "Progress", "Sort Order", "Created At", "Updated At"])
+    ws_tasks.append(["Task UID", "Project UID", "Parent Task UID", "Name", "Description", "Accountable Person", "Responsible Party", "Start Date", "End Date", "Is Milestone", "Status", "Progress", "Sort Order", "Created At", "Updated At"])
     for t in tasks:
-        ws_tasks.append([t["uid"], t["project_uid"], t["parent_task_uid"] or "", t["name"], t["description"] or "", t["accountable_person"] or "", t["responsible_party"] or "", t["start_date"] or "", t["end_date"] or "", t["status"], t["progress"], t["sort_order"], t["created_at"], t["updated_at"]])
+        ws_tasks.append([t["uid"], t["project_uid"], t["parent_task_uid"] or "", t["name"], t["description"] or "", t["accountable_person"] or "", t["responsible_party"] or "", t["start_date"] or "", t["end_date"] or "", bool(t.get("is_milestone")), t["status"], t["progress"], t["sort_order"], t["created_at"], t["updated_at"]])
 
     # Dependencies
     ws_dep = wb.create_sheet("Dependencies")
@@ -125,11 +135,12 @@ def import_xlsx(content: bytes) -> dict:
                 "responsible_party": str(row[6]) if row[6] else "",
                 "start_date": str(row[7]) if row[7] else None,
                 "end_date": str(row[8]) if row[8] else None,
-                "status": str(row[9]) if row[9] else "not_started",
-                "progress": int(row[10]) if row[10] is not None else 0,
-                "sort_order": int(row[11]) if row[11] is not None else 0,
-                "created_at": str(row[12]) if row[12] else datetime.utcnow().isoformat() + "Z",
-                "updated_at": str(row[13]) if row[13] else datetime.utcnow().isoformat() + "Z",
+                "is_milestone": _as_bool(row[9]) if len(row) > 14 else False,
+                "status": str(row[10]) if len(row) > 14 and row[10] else (str(row[9]) if row[9] else "not_started"),
+                "progress": int(row[11]) if len(row) > 14 and row[11] is not None else (int(row[10]) if row[10] is not None else 0),
+                "sort_order": int(row[12]) if len(row) > 14 and row[12] is not None else (int(row[11]) if row[11] is not None else 0),
+                "created_at": str(row[13]) if len(row) > 14 and row[13] else (str(row[12]) if row[12] else datetime.utcnow().isoformat() + "Z"),
+                "updated_at": str(row[14]) if len(row) > 14 and row[14] else (str(row[13]) if row[13] else datetime.utcnow().isoformat() + "Z"),
             })
 
     ws_dep = get_sheet("Dependencies")
@@ -203,9 +214,9 @@ def import_xlsx(content: bytes) -> dict:
             conn.execute("INSERT OR REPLACE INTO projects (uid, name, created_at) VALUES (?, ?, ?)", (p["uid"], p["name"], p["created_at"]))
         for t in tasks:
             conn.execute(
-                """INSERT OR REPLACE INTO tasks (uid, project_uid, parent_task_uid, name, description, accountable_person, responsible_party, start_date, end_date, status, progress, sort_order, created_at, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (t["uid"], t["project_uid"], t["parent_task_uid"], t["name"], t["description"], t["accountable_person"], t["responsible_party"], t["start_date"], t["end_date"], t["status"], t["progress"], t["sort_order"], t["created_at"], t["updated_at"]),
+                """INSERT OR REPLACE INTO tasks (uid, project_uid, parent_task_uid, name, description, accountable_person, responsible_party, start_date, end_date, is_milestone, status, progress, sort_order, created_at, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (t["uid"], t["project_uid"], t["parent_task_uid"], t["name"], t["description"], t["accountable_person"], t["responsible_party"], t["start_date"], t["end_date"], int(t.get("is_milestone", False)), t["status"], t["progress"], t["sort_order"], t["created_at"], t["updated_at"]),
             )
         for d in deps:
             conn.execute(
