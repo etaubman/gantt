@@ -1,6 +1,8 @@
 window.Gantt = window.Gantt || {};
 
 Gantt.utils = (function() {
+  var toastContainer = null;
+
   function escapeHtml(s) {
     if (s == null || s === undefined) return '';
     const d = document.createElement('div');
@@ -34,12 +36,26 @@ Gantt.utils = (function() {
     }).join(' ');
   }
 
+  function ensureToastContainer() {
+    if (toastContainer && toastContainer.isConnected) return toastContainer;
+    toastContainer = document.createElement('div');
+    toastContainer.className = 'toast-stack';
+    document.body.appendChild(toastContainer);
+    return toastContainer;
+  }
+
   function showToast(msg, isError) {
+    const stack = ensureToastContainer();
     const t = document.createElement('div');
     t.className = 'toast' + (isError ? ' error' : '');
     t.textContent = msg;
-    document.body.appendChild(t);
-    setTimeout(function() { t.remove(); }, 4000);
+    t.setAttribute('role', 'status');
+    t.setAttribute('aria-live', isError ? 'assertive' : 'polite');
+    stack.appendChild(t);
+    window.setTimeout(function() {
+      t.classList.add('is-leaving');
+      window.setTimeout(function() { t.remove(); }, 180);
+    }, isError ? 4200 : 2600);
   }
 
   return {

@@ -7,6 +7,7 @@ Gantt.gantt = (function() {
   var prettyDate = function(d) { return Gantt.utils.prettyDate(d); };
   var titleCaseStatus = function(status) { return Gantt.utils.titleCaseStatus(status); };
   var activeTooltip = null;
+  var tooltipHideTimer = null;
 
   function dateAtStart(d) {
     return new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -272,6 +273,15 @@ Gantt.gantt = (function() {
     activeTooltip = document.createElement('div');
     activeTooltip.className = 'gantt-super-tooltip';
     activeTooltip.hidden = true;
+    activeTooltip.addEventListener('mouseenter', function() {
+      if (tooltipHideTimer) {
+        window.clearTimeout(tooltipHideTimer);
+        tooltipHideTimer = null;
+      }
+    });
+    activeTooltip.addEventListener('mouseleave', function() {
+      hideTooltip();
+    });
     document.body.appendChild(activeTooltip);
     return activeTooltip;
   }
@@ -290,13 +300,20 @@ Gantt.gantt = (function() {
   }
 
   function hideTooltip() {
-    var tooltip = ensureTooltip();
-    tooltip.hidden = true;
-    tooltip.innerHTML = '';
+    if (tooltipHideTimer) window.clearTimeout(tooltipHideTimer);
+    tooltipHideTimer = window.setTimeout(function() {
+      var tooltip = ensureTooltip();
+      tooltip.hidden = true;
+      tooltip.innerHTML = '';
+    }, 160);
   }
 
   function showTooltip(event, task, rag, progress) {
     var tooltip = ensureTooltip();
+    if (tooltipHideTimer) {
+      window.clearTimeout(tooltipHideTimer);
+      tooltipHideTimer = null;
+    }
     var description = task.description || 'No description';
     var dateLabel = (task.start_date && task.end_date)
       ? (task.is_milestone ? prettyDate(task.start_date) : (prettyDate(task.start_date) + ' - ' + prettyDate(task.end_date)))

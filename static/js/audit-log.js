@@ -289,8 +289,20 @@ Gantt.auditLog = (function() {
     ensureModal();
     var summaryEl = overlayEl.querySelector('#audit-log-summary');
     var listEl = overlayEl.querySelector('#audit-log-list');
+    var detailEl = overlayEl.querySelector('#audit-log-detail');
     summaryEl.textContent = 'Loading audit log…';
-    listEl.innerHTML = '';
+    listEl.innerHTML =
+      '<div class="audit-log-loading">' +
+        '<div class="loading-skeleton-card"><div class="loading-skeleton-line w-40"></div><div class="loading-skeleton-line w-90"></div><div class="loading-skeleton-line w-60"></div></div>' +
+        '<div class="loading-skeleton-card"><div class="loading-skeleton-line w-30"></div><div class="loading-skeleton-line w-80"></div><div class="loading-skeleton-line w-50"></div></div>' +
+        '<div class="loading-skeleton-card"><div class="loading-skeleton-line w-35"></div><div class="loading-skeleton-line w-85"></div><div class="loading-skeleton-line w-55"></div></div>' +
+      '</div>';
+    if (detailEl) {
+      detailEl.innerHTML =
+        '<div class="audit-log-detail-empty">' +
+          '<div class="loading-skeleton-card"><div class="loading-skeleton-line w-40"></div><div class="loading-skeleton-line w-90"></div><div class="loading-skeleton-line w-65"></div></div>' +
+        '</div>';
+    }
     api.getAuditEvents()
       .then(function(data) {
         events = Array.isArray(data) ? data : [];

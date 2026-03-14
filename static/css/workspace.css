@@ -37,6 +37,27 @@
   gap: 0.65rem;
 }
 
+.workspace-header .header-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.header-status-group,
+.header-action-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.3rem;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.025);
+  border: 1px solid rgba(255,255,255,0.04);
+}
+
+.header-action-group-exports {
+  background: rgba(97, 168, 255, 0.04);
+  border-color: rgba(97, 168, 255, 0.08);
+}
+
 .project-heading {
   display: flex;
   flex-direction: column;
@@ -200,6 +221,10 @@
   gap: 0.75rem;
 }
 
+.task-panel-toolbar.has-active-filters {
+  box-shadow: inset 0 -1px 0 rgba(97, 168, 255, 0.1);
+}
+
 .task-toolbar-group {
   display: flex;
   align-items: center;
@@ -257,6 +282,20 @@
     calc(100% - 10px) calc(50% - 1px);
   background-size: 5px 5px, 5px 5px;
   background-repeat: no-repeat;
+  transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease, color 0.16s ease;
+}
+
+.task-filter-select:hover,
+.gantt-zoom-select:hover {
+  border-color: rgba(97, 168, 255, 0.22);
+  background-color: rgba(255,255,255,0.045);
+}
+
+.task-filter-select.is-active-filter {
+  background-color: rgba(97, 168, 255, 0.08);
+  border-color: rgba(97, 168, 255, 0.28);
+  color: #d8ebff;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03), 0 0 0 1px rgba(97, 168, 255, 0.06);
 }
 
 .task-toolbar-group-compact .task-filter-select {
@@ -267,6 +306,23 @@
   min-height: 32px;
   padding: 0 0.75rem;
   font-size: 0.8rem;
+}
+
+.task-filter-summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 0.8rem;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.04);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.task-filter-summary.is-active {
+  background: rgba(97, 168, 255, 0.1);
+  color: #b8dbff;
 }
 
 .task-table,
@@ -317,7 +373,7 @@
 .task-table th:nth-child(9) { width: 8%; }
 
 .task-table td {
-  padding: 0 0.75rem;
+  padding: 0 0.85rem;
   height: var(--row-height);
   border-bottom: 1px solid rgba(255,255,255,0.05);
   color: var(--text-primary);
@@ -333,16 +389,24 @@
   position: relative;
   height: var(--row-height);
   cursor: pointer;
-  transition: background 0.16s ease, box-shadow 0.16s ease;
+  transition: background 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+.task-table tbody tr:nth-child(even) {
+  background: rgba(255,255,255,0.012);
 }
 
 .task-table tbody tr:hover {
-  background: rgba(255,255,255,0.028);
+  background: rgba(255,255,255,0.034);
 }
 
 .task-table tbody tr.selected {
-  background: rgba(97, 168, 255, 0.08);
-  box-shadow: inset 3px 0 0 var(--accent);
+  background: linear-gradient(90deg, rgba(97, 168, 255, 0.12) 0%, rgba(97, 168, 255, 0.03) 100%);
+  box-shadow: inset 3px 0 0 var(--accent), inset 0 1px 0 rgba(255,255,255,0.02);
+}
+
+.task-table tbody tr.selected:hover {
+  background: linear-gradient(90deg, rgba(97, 168, 255, 0.16) 0%, rgba(97, 168, 255, 0.05) 100%);
 }
 
 .task-table .indent-0 { padding-left: 0.25rem; }
@@ -390,7 +454,7 @@
 .task-name {
   min-width: 0;
   font-weight: 600;
-  line-height: 1.2;
+  line-height: 1.25;
   color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -593,7 +657,8 @@
   background: linear-gradient(180deg, rgba(18, 26, 38, 0.98) 0%, rgba(10, 15, 23, 0.98) 100%);
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.34);
   backdrop-filter: blur(14px);
-  pointer-events: none;
+  pointer-events: auto;
+  transition: transform 0.16s ease, opacity 0.16s ease;
 }
 
 .task-super-tooltip-title {
@@ -676,6 +741,43 @@
   margin-top: 0.18rem;
   color: var(--text-muted);
   font-size: 0.74rem;
+}
+
+.loading-skeleton-card {
+  padding: 0.72rem 0.8rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.05);
+  background: rgba(255,255,255,0.025);
+}
+
+.loading-skeleton-line {
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.11) 50%, rgba(255,255,255,0.05) 100%);
+  background-size: 220% 100%;
+  animation: loading-skeleton 1.2s ease-in-out infinite;
+  margin-top: 0.45rem;
+}
+
+.loading-skeleton-line:first-child {
+  margin-top: 0;
+}
+
+.loading-skeleton-line.w-30 { width: 30%; }
+.loading-skeleton-line.w-35 { width: 35%; }
+.loading-skeleton-line.w-40 { width: 40%; }
+.loading-skeleton-line.w-50 { width: 50%; }
+.loading-skeleton-line.w-55 { width: 55%; }
+.loading-skeleton-line.w-60 { width: 60%; }
+.loading-skeleton-line.w-65 { width: 65%; }
+.loading-skeleton-line.w-70 { width: 70%; }
+.loading-skeleton-line.w-80 { width: 80%; }
+.loading-skeleton-line.w-85 { width: 85%; }
+.loading-skeleton-line.w-90 { width: 90%; }
+
+@keyframes loading-skeleton {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
 }
 
 .audit-log-modal {
@@ -1135,6 +1237,7 @@
 .task-table .btn-row-action:hover {
   background: rgba(97, 168, 255, 0.08);
   border-color: rgba(97, 168, 255, 0.12);
+  transform: translateY(-1px);
 }
 
 .task-table .btn-row-action:disabled {
@@ -1335,15 +1438,16 @@
   position: relative;
   height: var(--row-height);
   border-bottom: 1px solid rgba(255,255,255,0.04);
-  transition: background 0.16s ease;
+  transition: background 0.16s ease, box-shadow 0.16s ease;
 }
 
 .gantt-row:hover {
-  background: rgba(255,255,255,0.028);
+  background: rgba(255,255,255,0.04);
 }
 
 .gantt-row.selected {
-  background: rgba(97, 168, 255, 0.08);
+  background: linear-gradient(90deg, rgba(97, 168, 255, 0.12) 0%, rgba(97, 168, 255, 0.04) 100%);
+  box-shadow: inset 3px 0 0 rgba(97, 168, 255, 0.9);
 }
 
 .gantt-row .bar-wrap {
@@ -1379,7 +1483,7 @@
 }
 
 .gantt-row.selected .bar {
-  box-shadow: 0 0 0 1px rgba(97, 168, 255, 0.26), 0 14px 28px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 0 0 1px rgba(97, 168, 255, 0.4), 0 0 0 5px rgba(97, 168, 255, 0.08), 0 14px 28px rgba(0, 0, 0, 0.22);
 }
 
 .gantt-row.dependency-row-active,
@@ -1546,7 +1650,13 @@
   background: linear-gradient(180deg, rgba(18, 26, 38, 0.98) 0%, rgba(10, 15, 23, 0.98) 100%);
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.34);
   backdrop-filter: blur(14px);
-  pointer-events: none;
+  pointer-events: auto;
+}
+
+.audit-log-loading {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.8rem 1rem 1rem;
 }
 
 .gantt-super-tooltip-title {

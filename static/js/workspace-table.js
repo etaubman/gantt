@@ -9,12 +9,25 @@ Gantt.table = (function() {
   var taskTooltipHideTimer = null;
   var taskTooltipRequestId = 0;
   var taskTooltipDetailsCache = {};
+  var activeTaskTooltipAnchor = null;
+  var taskTooltipHovered = false;
 
   function ensureTaskTooltip() {
     if (taskTooltipEl && taskTooltipEl.isConnected) return taskTooltipEl;
     taskTooltipEl = document.createElement('div');
     taskTooltipEl.className = 'task-super-tooltip';
     taskTooltipEl.hidden = true;
+    taskTooltipEl.addEventListener('mouseenter', function() {
+      taskTooltipHovered = true;
+      if (taskTooltipHideTimer) {
+        window.clearTimeout(taskTooltipHideTimer);
+        taskTooltipHideTimer = null;
+      }
+    });
+    taskTooltipEl.addEventListener('mouseleave', function() {
+      taskTooltipHovered = false;
+      scheduleHideTaskTooltip();
+    });
     document.body.appendChild(taskTooltipEl);
     return taskTooltipEl;
   }
@@ -24,7 +37,7 @@ Gantt.table = (function() {
     var rect = anchor.getBoundingClientRect();
     var tooltipRect = taskTooltipEl.getBoundingClientRect();
     var top = rect.bottom + 10;
-    var left = rect.left;
+    var left = rect.left + ((rect.width - tooltipRect.width) / 2);
     var maxLeft = window.innerWidth - tooltipRect.width - 8;
     if (left > maxLeft) left = maxLeft;
     if (left < 8) left = 8;
@@ -37,16 +50,18 @@ Gantt.table = (function() {
   }
 
   function hideTaskTooltip() {
+    if (taskTooltipHovered) return;
     if (taskTooltipHideTimer) {
       window.clearTimeout(taskTooltipHideTimer);
       taskTooltipHideTimer = null;
     }
+    activeTaskTooltipAnchor = null;
     if (taskTooltipEl) taskTooltipEl.hidden = true;
   }
 
   function scheduleHideTaskTooltip() {
     if (taskTooltipHideTimer) window.clearTimeout(taskTooltipHideTimer);
-    taskTooltipHideTimer = window.setTimeout(hideTaskTooltip, 60);
+    taskTooltipHideTimer = window.setTimeout(hideTaskTooltip, 180);
   }
 
   function getTaskDurationValue(task) {
@@ -117,6 +132,8 @@ Gantt.table = (function() {
 
   function showTaskTooltip(anchor, task) {
     var tooltip = renderTaskTooltip(task, null);
+    activeTaskTooltipAnchor = anchor;
+    taskTooltipHovered = false;
     if (taskTooltipHideTimer) {
       window.clearTimeout(taskTooltipHideTimer);
       taskTooltipHideTimer = null;
@@ -125,7 +142,7 @@ Gantt.table = (function() {
     tooltip.hidden = false;
     positionTaskTooltip(anchor);
     loadTaskTooltipDetails(task).then(function(details) {
-      if (!taskTooltipEl || taskTooltipEl.hidden || requestId !== taskTooltipRequestId) return;
+      if (!taskTooltipEl || taskTooltipEl.hidden || requestId !== taskTooltipRequestId || activeTaskTooltipAnchor !== anchor) return;
       renderTaskTooltip(task, details);
       positionTaskTooltip(anchor);
     });
@@ -137,7 +154,7 @@ Gantt.table = (function() {
       showTaskTooltip(anchor, task);
     });
     anchor.addEventListener('mousemove', function() {
-      positionTaskTooltip(anchor);
+      if (!taskTooltipHovered) positionTaskTooltip(anchor);
     });
     anchor.addEventListener('mouseleave', scheduleHideTaskTooltip);
     anchor.addEventListener('focus', function() {

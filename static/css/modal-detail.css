@@ -181,6 +181,13 @@
   color: #d8ebff;
 }
 .task-detail-modal .detail-tab-panel[hidden] { display: none; }
+.task-detail-modal .detail-tab-panel.is-active {
+  animation: detail-panel-in 0.18s ease;
+}
+@keyframes detail-panel-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 .task-detail-modal .section {
   margin-bottom: 1rem;
   padding: 1rem 1rem 0.95rem;
@@ -307,6 +314,11 @@
   border-radius: var(--radius-md);
   margin-bottom: 0.5rem;
   font-size: 0.875rem;
+  transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
+}
+.task-detail-modal .list-item:hover {
+  background: rgba(255,255,255,0.055);
+  border-color: rgba(255,255,255,0.09);
 }
 .task-detail-modal .empty-state-card {
   margin-bottom: 0.8rem;
@@ -318,7 +330,40 @@
   font-size: 0.88rem;
   line-height: 1.45;
 }
-.task-detail-modal .list-item .meta { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.35rem; }
+.task-detail-modal .list-item .meta { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.35rem; line-height: 1.45; }
+.task-detail-modal .list-item-body {
+  margin-top: 0.45rem;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  line-height: 1.5;
+  word-break: break-word;
+}
+.task-detail-modal .list-item-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+.task-detail-modal .list-item-badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+.task-detail-modal .risk-status-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 0.45rem;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.05);
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+.task-detail-modal .btn-inline-action {
+  margin-top: 0.65rem;
+}
 .task-detail-modal .empty-msg { color: var(--text-muted); font-size: 0.9rem; }
 .task-detail-modal .form-inline {
   display: flex;
@@ -432,6 +477,12 @@
 .task-detail-modal .rag-badge.green { background: var(--green-bg); color: #34d399; }
 .task-detail-modal .rag-badge.amber { background: var(--amber-bg); color: #fbbf24; }
 .task-detail-modal .rag-badge.red { background: var(--red-bg); color: #f87171; }
+.task-detail-modal .is-success-pulse {
+  background: rgba(34, 164, 71, 0.16) !important;
+  border-color: rgba(34, 164, 71, 0.24) !important;
+  color: #86efac !important;
+  box-shadow: 0 0 0 4px rgba(34, 164, 71, 0.08);
+}
 .task-detail-modal .detail-highlight-row {
   display: flex;
   align-items: center;

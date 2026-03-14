@@ -449,12 +449,38 @@ Gantt.workspace = (function() {
   function updateTaskFilterUi() {
     var el = state.getEl();
     var count = 0;
-    if (state.getSelectedAccountable() !== 'all') count += 1;
-    if (state.getSelectedResponsible() !== 'all') count += 1;
-    if (state.getSelectedRag() !== 'all') count += 1;
-    if (state.getSelectedStatus() !== 'all') count += 1;
+    var filters = [
+      { value: state.getSelectedAccountable(), element: el.accountableFilterSelect, label: 'accountable' },
+      { value: state.getSelectedResponsible(), element: el.responsibleFilterSelect, label: 'responsible' },
+      { value: state.getSelectedRag(), element: el.ragFilterSelect, label: 'RAG' },
+      { value: state.getSelectedStatus(), element: el.statusFilterSelect, label: 'status' }
+    ];
+    var activeLabels = [];
+    filters.forEach(function(filter) {
+      var active = filter.value !== 'all';
+      if (active) {
+        count += 1;
+        activeLabels.push(filter.label);
+      }
+      if (filter.element) filter.element.classList.toggle('is-active-filter', active);
+    });
+    if (el.domainFilterSelect) {
+      el.domainFilterSelect.classList.toggle('is-active-filter', state.getSelectedDomainUid() !== 'all');
+    }
     if (el.btnClearFilters) {
       el.btnClearFilters.disabled = count === 0;
+      el.btnClearFilters.textContent = count === 0 ? 'Clear filters' : ('Clear ' + count + ' filter' + (count === 1 ? '' : 's'));
+    }
+    if (el.taskFilterSummary) {
+      el.taskFilterSummary.textContent = count === 0 ? 'All filters off' : ('Filtered by ' + activeLabels.join(', '));
+      el.taskFilterSummary.classList.toggle('is-active', count > 0);
+    }
+    if (el.taskTableWrap) {
+      el.taskTableWrap.classList.toggle('has-active-filters', count > 0 || state.getSelectedDomainUid() !== 'all');
+    }
+    var toolbar = document.querySelector('.task-panel-toolbar');
+    if (toolbar) {
+      toolbar.classList.toggle('has-active-filters', count > 0 || state.getSelectedDomainUid() !== 'all');
     }
   }
 

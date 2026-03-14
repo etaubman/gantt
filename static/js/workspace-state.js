@@ -55,6 +55,7 @@ Gantt.state = (function() {
     responsibleFilterSelect: document.getElementById('responsible-filter-select'),
     ragFilterSelect: document.getElementById('rag-filter-select'),
     statusFilterSelect: document.getElementById('status-filter-select'),
+    taskFilterSummary: document.getElementById('task-filter-summary'),
     btnClearFilters: document.getElementById('btn-clear-filters'),
     workspaceServerIndicator: document.getElementById('workspace-server-indicator'),
     workspaceModeIndicator: document.getElementById('workspace-mode-indicator'),

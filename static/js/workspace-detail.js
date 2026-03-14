@@ -19,6 +19,28 @@ Gantt.detail = (function() {
     }
   };
 
+  function renderSkeletonCards(count) {
+    return new Array(count).fill('').map(function() {
+      return '<div class="loading-skeleton-card">' +
+        '<div class="loading-skeleton-line w-40"></div>' +
+        '<div class="loading-skeleton-line w-90"></div>' +
+        '<div class="loading-skeleton-line w-70"></div>' +
+      '</div>';
+    }).join('');
+  }
+
+  function flashButtonSuccess(buttonId, successLabel) {
+    var button = document.getElementById(buttonId);
+    if (!button) return;
+    var originalLabel = button.textContent;
+    button.textContent = successLabel;
+    button.classList.add('is-success-pulse');
+    window.setTimeout(function() {
+      button.textContent = originalLabel;
+      button.classList.remove('is-success-pulse');
+    }, 1200);
+  }
+
   function openTaskModal() {
     var el = Gantt.state.getEl();
     if (el.taskDetailModal) {
@@ -254,7 +276,7 @@ Gantt.detail = (function() {
       };
       workspace.ensureEditAccess(function() {
         Gantt.api.patchTask(selectedTaskUid, payload)
-          .then(function() { showToast('Task saved'); if (refreshAll) refreshAll(); })
+          .then(function() { showToast('Task saved'); flashButtonSuccess('detail-save', 'Saved'); if (refreshAll) refreshAll(); })
           .catch(function(e) { showToast(e.message, true); });
       });
     });
@@ -291,6 +313,8 @@ Gantt.detail = (function() {
 
     // RAG
     function loadRag() {
+      document.getElementById('rag-current').innerHTML = renderSkeletonCards(1);
+      document.getElementById('rag-history').innerHTML = '';
       Gantt.api.getTaskRag(selectedTaskUid).then(function(rag) {
         var cur = rag.length ? rag[rag.length - 1] : null;
         cacheRagTooltip(selectedTaskUid, rag);
@@ -335,18 +359,24 @@ Gantt.detail = (function() {
       if ((status === 'amber' || status === 'red') && !rationale) { showToast('Rationale required for amber/red', true); return; }
       workspace.ensureEditAccess(function() {
         Gantt.api.postRag(selectedTaskUid, { status: status, rationale: rationale, path_to_green: pathToGreen })
-          .then(function() { showToast('RAG updated'); loadRag(); if (refreshAll) refreshAll(); })
+          .then(function() { showToast('RAG updated'); flashButtonSuccess('rag-add', 'Updated'); loadRag(); if (refreshAll) refreshAll(); })
           .catch(function(e) { showToast(e.message, true); });
       });
     });
 
     // Comments
     function loadComments() {
+      var listEl = document.getElementById('comments-list');
+      listEl.innerHTML = renderSkeletonCards(2);
       Gantt.api.getTaskComments(selectedTaskUid).then(function(comments) {
-        var listEl = document.getElementById('comments-list');
-        listEl.innerHTML = comments.length === 0 ? '<div class="empty-state-card">No comments yet. Add updates, decisions, or notes for this task.</div>' : comments.map(function(c) {
-          return '<div class="list-item">' + escapeHtml(c.comment_text) + ' <div class="meta">' + escapeHtml(c.author) + ' · ' + escapeHtml(c.created_at) + '</div></div>';
+        listEl.innerHTML = comments.length === 0 ? '<div class="empty-state-card">No comments yet. Add updates, decisions, or notes for this task.</div>' : comments.slice().reverse().map(function(c) {
+          return '<div class="list-item list-item-comment">' +
+            '<div class="list-item-body">' + escapeHtml(c.comment_text) + '</div>' +
+            '<div class="meta">' + escapeHtml(c.author || 'Unknown') + ' · ' + escapeHtml(prettyDate(c.created_at)) + '</div>' +
+          '</div>';
         }).join('');
+      }).catch(function() {
+        listEl.innerHTML = '<div class="empty-state-card">Comments could not be loaded right now.</div>';
       });
     }
     loadComments();
@@ -359,6 +389,7 @@ Gantt.detail = (function() {
             document.getElementById('comment-text').value = '';
             loadComments();
             showToast('Comment added');
+            flashButtonSuccess('comment-add', 'Added');
           })
           .catch(function(e) { showToast(e.message, true); });
       });
@@ -367,15 +398,27 @@ Gantt.detail = (function() {
     // Risks
     var editingRiskUid = null;
     function loadRisks() {
+      var listEl = document.getElementById('risks-list');
+      listEl.innerHTML = renderSkeletonCards(2);
       Gantt.api.getTaskRisks(selectedTaskUid).then(function(risks) {
-        var listEl = document.getElementById('risks-list');
         listEl.innerHTML = risks.length === 0 ? '<div class="empty-state-card">No risks yet. Add delivery risks, owners, and mitigation actions here.</div>' : risks.map(function(r) {
-          return '<div class="list-item" data-uid="' + escapeHtml(r.uid) + '">' +
-            '<strong>' + escapeHtml(r.title) + '</strong>' +
-            ' <span class="severity-badge ' + escapeHtml(r.severity) + '">' + escapeHtml(r.severity) + '</span>' +
-            ' <span style="color:var(--text-muted);font-size:0.85rem">' + escapeHtml(r.status) + '</span>' +
-            '<div class="meta">' + (r.owner ? escapeHtml(r.owner) : '') + '</div>' +
-            '<button type="button" class="btn btn-secondary" style="margin-top:6px"' + disabledAttr + ' data-edit="' + escapeHtml(r.uid) + '">Edit</button>' +
+          return '<div class="list-item list-item-risk" data-uid="' + escapeHtml(r.uid) + '">' +
+            '<div class="list-item-header">' +
+              '<strong>' + escapeHtml(r.title) + '</strong>' +
+              '<div class="list-item-badges">' +
+                '<span class="severity-badge ' + escapeHtml(r.severity) + '">' + escapeHtml(r.severity) + '</span>' +
+                '<span class="risk-status-chip">' + escapeHtml(titleCaseStatus(r.status)) + '</span>' +
+              '</div>' +
+            '</div>' +
+            (r.description ? '<div class="list-item-body">' + escapeHtml(r.description) + '</div>' : '') +
+            ((r.owner || r.mitigation_plan)
+              ? '<div class="meta">' +
+                  (r.owner ? ('Owner: ' + escapeHtml(r.owner)) : '') +
+                  (r.owner && r.mitigation_plan ? ' · ' : '') +
+                  (r.mitigation_plan ? ('Mitigation: ' + escapeHtml(r.mitigation_plan)) : '') +
+                '</div>'
+              : '') +
+            '<button type="button" class="btn btn-secondary btn-inline-action"' + disabledAttr + ' data-edit="' + escapeHtml(r.uid) + '">Edit</button>' +
           '</div>';
         }).join('');
         listEl.querySelectorAll('[data-edit]').forEach(function(b) {
@@ -392,6 +435,8 @@ Gantt.detail = (function() {
             document.getElementById('risk-mitigation').value = risk.mitigation_plan || '';
           });
         });
+      }).catch(function() {
+        listEl.innerHTML = '<div class="empty-state-card">Risks could not be loaded right now.</div>';
       });
     }
     loadRisks();
@@ -426,6 +471,7 @@ Gantt.detail = (function() {
               showToast('Risk updated');
               document.getElementById('risk-form').style.display = 'none';
               editingRiskUid = null;
+              flashButtonSuccess('risk-save', 'Saved');
               loadRisks();
             })
             .catch(function(e) { showToast(e.message, true); });
@@ -434,6 +480,7 @@ Gantt.detail = (function() {
             .then(function() {
               showToast('Risk added');
               document.getElementById('risk-form').style.display = 'none';
+              flashButtonSuccess('risk-save', 'Saved');
               loadRisks();
             })
             .catch(function(e) { showToast(e.message, true); });
@@ -455,7 +502,7 @@ Gantt.detail = (function() {
           predecessor_task_uid: pred,
           successor_task_uid: selectedTaskUid,
           dependency_type: depType
-        }).then(function() { showToast('Dependency added'); if (refreshAll) refreshAll(); }).catch(function(e) { showToast(e.message, true); });
+        }).then(function() { showToast('Dependency added'); flashButtonSuccess('dep-add', 'Added'); if (refreshAll) refreshAll(); }).catch(function(e) { showToast(e.message, true); });
       });
     });
 

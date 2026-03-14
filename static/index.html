@@ -20,14 +20,20 @@
         </div>
       </div>
       <div class="header-actions">
-        <span class="workspace-server-indicator is-unknown" id="workspace-server-indicator">Checking server...</span>
-        <span class="workspace-mode-indicator" id="workspace-mode-indicator">Read mode</span>
-        <button type="button" class="btn btn-secondary" id="btn-audit-log">Audit log</button>
-        <button type="button" class="btn btn-secondary" id="workspace-mode-toggle">Switch to edit</button>
-        <input type="file" id="file-import" accept=".xlsx,.xls" />
-        <button type="button" class="btn btn-secondary" id="btn-import">Import Excel</button>
-        <button type="button" class="btn btn-secondary" id="btn-export-report">Export Report</button>
-        <button type="button" class="btn btn-primary" id="btn-export">Export Excel</button>
+        <div class="header-status-group">
+          <span class="workspace-server-indicator is-unknown" id="workspace-server-indicator">Checking server...</span>
+          <span class="workspace-mode-indicator" id="workspace-mode-indicator">Read mode</span>
+        </div>
+        <div class="header-action-group">
+          <button type="button" class="btn btn-secondary" id="btn-audit-log">Audit log</button>
+          <button type="button" class="btn btn-secondary" id="workspace-mode-toggle">Switch to edit</button>
+        </div>
+        <div class="header-action-group header-action-group-exports">
+          <input type="file" id="file-import" accept=".xlsx,.xls" />
+          <button type="button" class="btn btn-secondary" id="btn-import">Import Excel</button>
+          <button type="button" class="btn btn-secondary" id="btn-export-report">Export Report</button>
+          <button type="button" class="btn btn-primary" id="btn-export">Export Excel</button>
+        </div>
       </div>
     </header>
     <div class="workspace-body">
@@ -69,6 +75,7 @@
               <option value="all">All status</option>
             </select>
           </div>
+          <span class="task-filter-summary" id="task-filter-summary">All filters off</span>
           <button type="button" class="btn btn-ghost task-clear-filters-btn" id="btn-clear-filters" title="Clear accountable, responsible, RAG, and status filters">Clear filters</button>
         </div>
         <div class="task-table" id="task-table-wrap">
