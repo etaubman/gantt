@@ -52,6 +52,36 @@ python -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 
 Open [http://localhost:8000](http://localhost:8000) in your browser.
 
+## Startup seeding
+
+On a fresh database, the app automatically creates the default project and these top-level tasks:
+
+- `Equities`
+- `Commodities`
+- `Rates`
+- `FX`
+- `Markets Operations`
+- `Markets Treasury`
+- `Spread Products`
+- `Other Markets`
+
+This seed only runs when the project has no tasks yet. If data already exists, startup will not add them again.
+
+To reseed with Docker:
+
+```powershell
+docker compose down -v
+docker compose up --build
+```
+
+To reseed locally without Docker:
+
+```powershell
+Remove-Item .\data\gantt.db -ErrorAction SilentlyContinue
+$env:GANTT_DB_PATH = ".\data\gantt.db"
+python -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+```
+
 ### Notes
 
 - The database file will be created automatically at `data/gantt.db`.
