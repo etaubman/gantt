@@ -98,7 +98,10 @@ Gantt.table = (function() {
       var toggleChar = hasKids ? (expanded ? '\u25BC' : '\u25B6') : '\u00A0';
       var toggleTitle = hasKids ? (expanded ? 'Collapse subtasks' : 'Expand subtasks') : '';
       var progress = Math.max(0, Math.min(100, t.progress != null ? t.progress : 0));
-      return '<tr data-uid="' + escapeHtml(t.uid) + '" class="' + (selectedTaskUid === t.uid ? 'selected' : '') + '">' +
+      var rowClasses = [];
+      if (selectedTaskUid === t.uid) rowClasses.push('selected');
+      if (t.status === 'cancelled') rowClasses.push('task-row-cancelled');
+      return '<tr data-uid="' + escapeHtml(t.uid) + '" class="' + rowClasses.join(' ') + '">' +
         '<td>' +
           '<div class="task-cell-shell">' +
             '<span class="task-hierarchy-number">' + escapeHtml(hierarchyNumber) + '</span>' +
@@ -106,7 +109,7 @@ Gantt.table = (function() {
             '<span class="' + toggleClass + '" data-uid="' + escapeHtml(t.uid) + '" data-has-children="' + (hasKids ? '1' : '0') + '" title="' + escapeHtml(toggleTitle) + '" aria-label="' + escapeHtml(toggleTitle) + '">' + toggleChar + '</span>' +
             milestoneMarker +
             '<span class="rag-dot ' + rag + '" aria-hidden="true"></span>' +
-            '<div class="task-name task-title-tooltip-anchor" data-task-uid="' + escapeHtml(t.uid) + '" tabindex="0">' + escapeHtml(t.name) + '</div>' +
+            '<div class="task-name task-title-tooltip-anchor' + (t.status === 'cancelled' ? ' is-cancelled' : '') + '" data-task-uid="' + escapeHtml(t.uid) + '" tabindex="0">' + escapeHtml(t.name) + '</div>' +
             '</div>' +
           '</div>' +
         '</td>' +

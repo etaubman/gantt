@@ -76,6 +76,47 @@
   font-weight: 700;
 }
 
+.workspace-server-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 34px;
+  padding: 0 0.8rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.03);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.workspace-server-indicator::before {
+  content: '';
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 0 0 0 0.2rem rgba(255,255,255,0.05);
+}
+
+.workspace-server-indicator.is-online {
+  background: rgba(34, 164, 71, 0.12);
+  border-color: rgba(34, 164, 71, 0.2);
+  color: #86efac;
+}
+
+.workspace-server-indicator.is-offline {
+  background: rgba(220, 38, 38, 0.12);
+  border-color: rgba(248, 113, 113, 0.22);
+  color: #fda4af;
+}
+
+.workspace-server-indicator.is-unknown {
+  background: rgba(250, 204, 21, 0.08);
+  border-color: rgba(250, 204, 21, 0.18);
+  color: #fde68a;
+}
+
 .workspace-mode-indicator.is-edit {
   background: rgba(34, 164, 71, 0.14);
   border-color: rgba(34, 164, 71, 0.2);
@@ -355,6 +396,12 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   cursor: help;
+}
+
+.task-name.is-cancelled {
+  color: rgba(214, 228, 245, 0.62);
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
 }
 
 .task-title-tooltip-anchor:focus-visible {
@@ -983,6 +1030,12 @@
   border-color: rgba(255,255,255,0.05);
 }
 
+.status-badge.status-cancelled {
+  background: rgba(148, 163, 184, 0.12);
+  color: #d4dbe7;
+  border-color: rgba(148, 163, 184, 0.16);
+}
+
 .table-progress {
   display: flex;
   align-items: center;
@@ -1300,6 +1353,11 @@
 .gantt-row .bar.rag-red { background: linear-gradient(90deg, #902a2a 0%, #c93a3a 100%); }
 .gantt-row .bar.rag-none { background: linear-gradient(90deg, #415066 0%, #5b6f8f 100%); }
 
+.gantt-row .bar.cancelled {
+  filter: saturate(0.45);
+  opacity: 0.9;
+}
+
 .gantt-row .bar-unscheduled {
   border-style: dashed;
   background: linear-gradient(90deg, #3d475a 0%, #53637a 100%);
@@ -1342,6 +1400,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   pointer-events: none;
+}
+
+.gantt-milestone-label.is-cancelled,
+.bar-label.is-cancelled {
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+  color: rgba(247, 251, 255, 0.74);
 }
 
 .gantt-row .bar-progress {

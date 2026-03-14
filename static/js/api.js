@@ -111,6 +111,14 @@ Gantt.api = (function() {
     });
   }
 
+  function softDeleteTask(taskUid, payload) {
+    return requestJson('/api/tasks/' + taskUid + '/soft-delete', {
+      method: 'POST',
+      headers: buildWriteHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(payload || {})
+    });
+  }
+
   function postDependency(payload) {
     return requestJson('/api/dependencies', {
       method: 'POST',
@@ -175,6 +183,7 @@ Gantt.api = (function() {
     postRisk: postRisk,
     patchRisk: patchRisk,
     postTask: postTask,
+    softDeleteTask: softDeleteTask,
     postDependency: postDependency,
     deleteDependency: deleteDependency,
     importFile: importFile,

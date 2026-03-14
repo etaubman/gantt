@@ -11,8 +11,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-from database import get_conn, init_db
-from seed_data import DEFAULT_PROJECT_UID, ensure_single_project_and_seed
+from backend.database import get_conn, init_db
+from backend.seed_data import DEFAULT_PROJECT_UID, ensure_single_project_and_seed
 
 app = FastAPI(title="Gantt Project Manager")
 
@@ -87,7 +87,13 @@ class EditLockRequest(BaseModel):
     force: bool = False
 
 
+class SoftDeleteTaskRequest(BaseModel):
+    strategy: str = "shift_up"
+
+
 EMPLOYEE_ID_RE = re.compile(r"^[a-zA-Z]{2}[0-9]{5}$")
+VALID_TASK_STATUSES = {"not_started", "in_progress", "complete", "blocked", "cancelled"}
+VALID_SOFT_DELETE_STRATEGIES = {"shift_up", "delete_subtasks"}
 
 
 def _now() -> str:
@@ -101,7 +107,23 @@ def _row_to_dict(row) -> dict:
 def _normalize_task_dict(row) -> dict:
     task = dict(row)
     task["is_milestone"] = bool(task.get("is_milestone"))
+    task["is_deleted"] = bool(task.get("is_deleted"))
     return task
+
+
+def _validate_task_status(status: Optional[str]) -> Optional[str]:
+    if status is None:
+        return None
+    if status not in VALID_TASK_STATUSES:
+        raise HTTPException(400, "Invalid task status")
+    return status
+
+
+def _validate_soft_delete_strategy(strategy: str) -> str:
+    value = (strategy or "").strip() or "shift_up"
+    if value not in VALID_SOFT_DELETE_STRATEGIES:
+        raise HTTPException(400, "Invalid soft delete strategy")
+    return value
 
 
 def _json_dumps(value) -> Optional[str]:
@@ -245,6 +267,19 @@ def _collect_task_delete_snapshot(conn, uid: str) -> dict:
     }
 
 
+def _collect_descendant_task_uids(conn, uid: str) -> list[str]:
+    out = []
+
+    def walk(task_uid: str):
+        children = conn.execute("SELECT uid FROM tasks WHERE parent_task_uid = ?", (task_uid,)).fetchall()
+        for child in children:
+            out.append(child["uid"])
+            walk(child["uid"])
+
+    walk(uid)
+    return out
+
+
 def _normalize_employee_id(employee_id: str) -> str:
     value = (employee_id or "").strip()
     if not EMPLOYEE_ID_RE.fullmatch(value):
@@ -349,8 +384,9 @@ def list_tasks(project_uid: str):
             raise HTTPException(404, "Project not found")
         cur = conn.execute(
             """SELECT uid, project_uid, parent_task_uid, name, description, accountable_person,
-                     responsible_party, start_date, end_date, is_milestone, status, progress, sort_order, created_at, updated_at
-              FROM tasks WHERE project_uid = ? ORDER BY sort_order, created_at""",
+                     responsible_party, start_date, end_date, is_milestone, status, progress, sort_order,
+                     is_deleted, deleted_at, deleted_by, created_at, updated_at
+              FROM tasks WHERE project_uid = ? AND COALESCE(is_deleted, 0) = 0 ORDER BY sort_order, created_at""",
             (project_uid,),
         )
         tasks = [_normalize_task_dict(r) for r in cur.fetchall()]
@@ -366,6 +402,7 @@ def list_tasks_single():
 @app.post("/api/projects/{project_uid}/tasks")
 def create_task(project_uid: str, body: TaskCreate, request: Request):
     actor_employee_id = _get_actor_employee_id(request)
+    _validate_task_status(body.status)
     with get_conn() as conn:
         if conn.execute("SELECT uid FROM projects WHERE uid = ?", (project_uid,)).fetchone() is None:
             raise HTTPException(404, "Project not found")
@@ -379,20 +416,22 @@ def create_task(project_uid: str, body: TaskCreate, request: Request):
         now = _now()
         conn.execute(
             """INSERT INTO tasks (uid, project_uid, parent_task_uid, name, description,
-               accountable_person, responsible_party, start_date, end_date, is_milestone, status, progress, sort_order, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               accountable_person, responsible_party, start_date, end_date, is_milestone, status, progress, sort_order,
+               is_deleted, deleted_at, deleted_by, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 uid, project_uid, body.parent_task_uid, body.name.strip(), body.description or "",
                 body.accountable_person or "", body.responsible_party or "",
                 body.start_date, body.end_date, int(body.is_milestone), body.status, body.progress, body.sort_order,
-                now, now,
+                0, None, None, now, now,
             ),
         )
         task = {"uid": uid, "project_uid": project_uid, "parent_task_uid": body.parent_task_uid,
                 "name": body.name.strip(), "description": body.description or "",
                 "accountable_person": body.accountable_person or "", "responsible_party": body.responsible_party or "",
                 "start_date": body.start_date, "end_date": body.end_date, "is_milestone": body.is_milestone, "status": body.status,
-                "progress": body.progress, "sort_order": body.sort_order, "created_at": now, "updated_at": now}
+                "progress": body.progress, "sort_order": body.sort_order, "is_deleted": False,
+                "deleted_at": None, "deleted_by": None, "created_at": now, "updated_at": now}
         _record_audit_event(
             conn,
             actor_employee_id=actor_employee_id,
@@ -418,7 +457,8 @@ def get_task(uid: str):
     with get_conn() as conn:
         row = conn.execute(
             """SELECT uid, project_uid, parent_task_uid, name, description, accountable_person,
-                      responsible_party, start_date, end_date, is_milestone, status, progress, sort_order, created_at, updated_at
+                      responsible_party, start_date, end_date, is_milestone, status, progress, sort_order,
+                      is_deleted, deleted_at, deleted_by, created_at, updated_at
                FROM tasks WHERE uid = ?""",
             (uid,),
         ).fetchone()
@@ -429,6 +469,7 @@ def get_task(uid: str):
 
 @app.patch("/api/tasks/{uid}")
 def update_task(uid: str, body: TaskUpdate, request: Request):
+    _validate_task_status(body.status)
     updates = []
     values = []
     for k, v in body.model_dump(exclude_unset=True).items():
@@ -538,6 +579,75 @@ def release_edit_lock(body: EditLockRequest, request: Request):
             metadata={"force": bool(body.force)},
         )
         return updated_lock
+
+
+@app.post("/api/tasks/{uid}/soft-delete")
+def soft_delete_task(uid: str, body: SoftDeleteTaskRequest, request: Request):
+    actor_employee_id = _get_actor_employee_id(request)
+    strategy = _validate_soft_delete_strategy(body.strategy)
+    now = _now()
+    with get_conn() as conn:
+        task_row = conn.execute("SELECT * FROM tasks WHERE uid = ?", (uid,)).fetchone()
+        if not task_row:
+            raise HTTPException(404, "Task not found")
+        task = _normalize_task_dict(task_row)
+        if task["is_deleted"]:
+            return task
+
+        descendants = _collect_descendant_task_uids(conn, uid)
+        child_rows = conn.execute(
+            "SELECT uid, parent_task_uid, name, sort_order FROM tasks WHERE parent_task_uid = ? ORDER BY sort_order, created_at",
+            (uid,),
+        ).fetchall()
+        snapshot = _collect_task_delete_snapshot(conn, uid)
+
+        affected_uids = [uid]
+        reparented_children = []
+        if strategy == "delete_subtasks":
+            affected_uids.extend(descendants)
+        else:
+            for child in child_rows:
+                conn.execute(
+                    "UPDATE tasks SET parent_task_uid = ?, updated_at = ? WHERE uid = ?",
+                    (task["parent_task_uid"], now, child["uid"]),
+                )
+                reparented_children.append({
+                    "uid": child["uid"],
+                    "name": child["name"],
+                    "new_parent_task_uid": task["parent_task_uid"],
+                })
+
+        placeholders = ",".join(["?"] * len(affected_uids))
+        conn.execute(
+            f"DELETE FROM dependencies WHERE predecessor_task_uid IN ({placeholders}) OR successor_task_uid IN ({placeholders})",
+            tuple(affected_uids + affected_uids),
+        )
+        conn.execute(
+            f"""UPDATE tasks
+                SET is_deleted = 1, deleted_at = ?, deleted_by = ?, updated_at = ?
+                WHERE uid IN ({placeholders})""",
+            tuple([now, actor_employee_id, now] + affected_uids),
+        )
+
+        updated_task = conn.execute("SELECT * FROM tasks WHERE uid = ?", (uid,)).fetchone()
+        _record_audit_event(
+            conn,
+            actor_employee_id=actor_employee_id,
+            action_type="task_soft_delete",
+            entity_type="task",
+            entity_uid=uid,
+            task_uid=uid,
+            task_name=task["name"],
+            prior_value=snapshot,
+            new_value=_normalize_task_dict(updated_task) if updated_task else None,
+            metadata={
+                "strategy": strategy,
+                "reparented_children": reparented_children,
+                "soft_deleted_task_uids": affected_uids,
+            },
+            created_at=now,
+        )
+    return _normalize_task_dict(updated_task) if updated_task else task
 
 
 @app.delete("/api/tasks/{uid}", status_code=204)
@@ -865,11 +975,11 @@ def delete_dependency(uid: str, request: Request):
 
 @app.get("/api/projects/{project_uid}/export")
 def export_project(project_uid: str):
-    from excel_io import export_project_to_xlsx
+    from backend.excel_io import export_project_to_xlsx
     path = export_project_to_xlsx(project_uid)
     if not path:
         raise HTTPException(404, "Project not found")
-    return FileResponse(path, filename="project-export.xlsx", media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    return FileResponse(path, filename=os.path.basename(path), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 
 @app.get("/api/export")
@@ -882,7 +992,7 @@ def export_single():
 def import_excel(request: Request, file: UploadFile = File(...)):
     if not file.filename or not file.filename.lower().endswith((".xlsx", ".xls")):
         raise HTTPException(400, "Please upload an Excel (.xlsx) file")
-    from excel_io import import_xlsx
+    from backend.excel_io import import_xlsx
     actor_employee_id = _get_actor_employee_id(request)
     content = file.file.read()
     try:

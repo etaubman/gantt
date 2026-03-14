@@ -107,6 +107,16 @@ Gantt.detail = (function() {
             '<div class="field"><label>' + (task.is_milestone ? 'Milestone date' : 'Start date') + '</label><input type="date" id="detail-start" value="' + dateStr(task.start_date) + '"' + disabledAttr + ' /></div>' +
             '<div class="field"><label>' + (task.is_milestone ? 'Mirror date' : 'End date') + '</label><input type="date" id="detail-end" value="' + dateStr(task.end_date) + '"' + disabledAttr + ' /></div>' +
           '</div>' +
+          '<div class="detail-danger-zone">' +
+            '<div class="detail-danger-copy">' +
+              '<div class="detail-danger-title">Remove from plan view</div>' +
+              '<div class="detail-danger-text">Soft-deleted tasks disappear from the workspace. You can either keep subtasks by shifting them up one level, or soft-delete the entire subtree.</div>' +
+            '</div>' +
+            '<div class="detail-danger-actions">' +
+              '<button type="button" class="btn btn-secondary" id="detail-soft-delete-shift"' + disabledAttr + '>Delete, keep subtasks</button>' +
+              '<button type="button" class="btn btn-danger" id="detail-soft-delete-cascade"' + disabledAttr + '>Delete with subtasks</button>' +
+            '</div>' +
+          '</div>' +
         '</div>' +
       '</div>' +
       '<div class="detail-tab-panel' + (activeTabName === 'health' ? ' is-active' : '') + '" data-tab-panel="health"' + (activeTabName === 'health' ? '' : ' hidden') + '>' +
@@ -124,6 +134,7 @@ Gantt.detail = (function() {
                 '<option value="in_progress"' + (task.status === 'in_progress' ? ' selected' : '') + '>In Progress</option>' +
                 '<option value="complete"' + (task.status === 'complete' ? ' selected' : '') + '>Complete</option>' +
                 '<option value="blocked"' + (task.status === 'blocked' ? ' selected' : '') + '>Blocked</option>' +
+                '<option value="cancelled"' + (task.status === 'cancelled' ? ' selected' : '') + '>Cancelled</option>' +
               '</select>' +
             '</div>' +
             '<div class="field"><label>Progress %</label><input type="number" id="detail-progress" min="0" max="100" value="' + (task.progress != null ? task.progress : 0) + '"' + disabledAttr + ' /></div>' +
@@ -247,6 +258,36 @@ Gantt.detail = (function() {
           .catch(function(e) { showToast(e.message, true); });
       });
     });
+
+    function runSoftDelete(strategy) {
+      if (!workspace || !workspace.ensureEditAccess) return;
+      var confirmMessage = strategy === 'delete_subtasks'
+        ? 'Soft-delete this task and all subtasks? They will disappear from the workspace view.'
+        : 'Soft-delete this task and shift its subtasks up one level?';
+      if (!window.confirm(confirmMessage)) return;
+      workspace.ensureEditAccess(function() {
+        Gantt.api.softDeleteTask(selectedTaskUid, { strategy: strategy })
+          .then(function() {
+            showToast(strategy === 'delete_subtasks' ? 'Task and subtasks removed from view' : 'Task removed and subtasks shifted up');
+            closeTaskModal();
+            if (refreshAll) refreshAll();
+          })
+          .catch(function(e) { showToast(e.message, true); });
+      });
+    }
+
+    var btnSoftDeleteShift = document.getElementById('detail-soft-delete-shift');
+    if (btnSoftDeleteShift) {
+      btnSoftDeleteShift.addEventListener('click', function() {
+        runSoftDelete('shift_up');
+      });
+    }
+    var btnSoftDeleteCascade = document.getElementById('detail-soft-delete-cascade');
+    if (btnSoftDeleteCascade) {
+      btnSoftDeleteCascade.addEventListener('click', function() {
+        runSoftDelete('delete_subtasks');
+      });
+    }
 
     // RAG
     function loadRag() {

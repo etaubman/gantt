@@ -30,6 +30,9 @@ def init_db():
                 status TEXT DEFAULT 'not_started',
                 progress INTEGER DEFAULT 0,
                 sort_order INTEGER DEFAULT 0,
+                is_deleted INTEGER DEFAULT 0,
+                deleted_at TEXT,
+                deleted_by TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
@@ -111,6 +114,12 @@ def init_db():
         task_columns = {row["name"] for row in conn.execute("PRAGMA table_info(tasks)").fetchall()}
         if "is_milestone" not in task_columns:
             conn.execute("ALTER TABLE tasks ADD COLUMN is_milestone INTEGER DEFAULT 0")
+        if "is_deleted" not in task_columns:
+            conn.execute("ALTER TABLE tasks ADD COLUMN is_deleted INTEGER DEFAULT 0")
+        if "deleted_at" not in task_columns:
+            conn.execute("ALTER TABLE tasks ADD COLUMN deleted_at TEXT")
+        if "deleted_by" not in task_columns:
+            conn.execute("ALTER TABLE tasks ADD COLUMN deleted_by TEXT")
 
 
 @contextmanager

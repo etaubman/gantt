@@ -398,8 +398,9 @@ Gantt.gantt = (function() {
       var progress = Math.max(0, Math.min(100, t.progress != null ? t.progress : 0));
       var rag = taskRag[t.uid] || 'none';
       var isMilestone = !!t.is_milestone;
+      var isCancelled = t.status === 'cancelled';
       var row = document.createElement('div');
-      row.className = 'gantt-row' + (selectedTaskUid === t.uid ? ' selected' : '');
+      row.className = 'gantt-row' + (selectedTaskUid === t.uid ? ' selected' : '') + (isCancelled ? ' cancelled' : '');
       row.style.height = ROW_HEIGHT + 'px';
       row.setAttribute('data-uid', t.uid);
       var barWrap = document.createElement('div');
@@ -420,7 +421,7 @@ Gantt.gantt = (function() {
         w = isMilestone ? 18 : Math.max(48, pxPerDay * 7);
       }
       var bar = document.createElement('button');
-      bar.className = 'bar rag-' + rag + (isMilestone ? ' milestone' : '');
+      bar.className = 'bar rag-' + rag + (isMilestone ? ' milestone' : '') + (isCancelled ? ' cancelled' : '');
       bar.type = 'button';
       if (isMilestone) {
         var milestoneCenter = left + (pxPerDay / 2);
@@ -433,7 +434,7 @@ Gantt.gantt = (function() {
         bar.style.left = left + 'px';
         bar.style.width = w + 'px';
         bar.innerHTML =
-          '<span class="bar-label">' + escapeHtml(t.name) + '</span>' +
+          '<span class="bar-label' + (isCancelled ? ' is-cancelled' : '') + '">' + escapeHtml(t.name) + '</span>' +
           '<span class="bar-meta">' + progress + '%</span>';
       }
       bar.setAttribute('aria-label', t.name + ', ' + (isMilestone ? 'milestone, ' : '') + titleCaseStatus(t.status || 'not_started') + ', ' + progress + ' percent');
@@ -447,6 +448,7 @@ Gantt.gantt = (function() {
       if (isMilestone) {
         var milestoneLabel = document.createElement('div');
         milestoneLabel.className = 'gantt-milestone-label';
+        if (isCancelled) milestoneLabel.classList.add('is-cancelled');
         milestoneLabel.textContent = t.name;
         milestoneLabel.style.left = (parseFloat(bar.style.left) + w + 10) + 'px';
         milestoneLabel.title = t.name;
