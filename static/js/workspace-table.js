@@ -7,6 +7,8 @@ Gantt.table = (function() {
   var titleCaseStatus = function(status) { return Gantt.utils.titleCaseStatus(status); };
   var taskTooltipEl = null;
   var taskTooltipHideTimer = null;
+  var taskTooltipRequestId = 0;
+  var taskTooltipDetailsCache = {};
 
   function ensureTaskTooltip() {
     if (taskTooltipEl && taskTooltipEl.isConnected) return taskTooltipEl;
@@ -47,23 +49,86 @@ Gantt.table = (function() {
     taskTooltipHideTimer = window.setTimeout(hideTaskTooltip, 60);
   }
 
-  function showTaskTooltip(anchor, task) {
-    var tooltip = ensureTaskTooltip();
-    if (taskTooltipHideTimer) {
-      window.clearTimeout(taskTooltipHideTimer);
-      taskTooltipHideTimer = null;
-    }
+  function getTaskDurationValue(task) {
     var durationValue = task.is_milestone
       ? prettyDate(task.start_date || task.end_date)
       : (prettyDate(task.start_date) + ' - ' + prettyDate(task.end_date));
+    return durationValue;
+  }
+
+  function renderTaskTooltip(task, details) {
+    var tooltip = ensureTaskTooltip();
+    var latestComment = details && details.latestComment;
+    var risks = details && details.risks;
+    var riskOverflowCount = details && details.riskOverflowCount;
+    var risksMarkup = !risks
+      ? '<div class="task-super-tooltip-muted">Loading risks...</div>'
+      : risks.length === 0
+        ? '<div class="task-super-tooltip-muted">No risks.</div>'
+        : '<div class="task-super-tooltip-list">' + risks.map(function(risk) {
+            var summary = [risk.severity, risk.status].filter(Boolean).map(titleCaseStatus).join(' • ');
+            return '<div class="task-super-tooltip-list-item">' +
+              '<div class="task-super-tooltip-list-title">' + escapeHtml(risk.title || 'Untitled risk') + '</div>' +
+              (summary ? '<div class="task-super-tooltip-list-meta">' + escapeHtml(summary) + '</div>' : '') +
+            '</div>';
+          }).join('') +
+          (riskOverflowCount > 0 ? '<div class="task-super-tooltip-muted">+' + riskOverflowCount + ' more risk' + (riskOverflowCount === 1 ? '' : 's') + '</div>' : '') +
+          '</div>';
     tooltip.innerHTML =
       '<div class="task-super-tooltip-title">' + escapeHtml(task.name || 'Untitled task') + '</div>' +
       '<div class="task-super-tooltip-desc">' + escapeHtml(task.description || 'No description provided.') + '</div>' +
       '<div class="task-super-tooltip-grid">' +
-        '<div class="task-super-tooltip-label">Duration</div><div class="task-super-tooltip-value">' + escapeHtml(durationValue) + '</div>' +
+        '<div class="task-super-tooltip-label">Duration</div><div class="task-super-tooltip-value">' + escapeHtml(getTaskDurationValue(task)) + '</div>' +
+      '</div>' +
+      '<div class="task-super-tooltip-section">' +
+        '<div class="task-super-tooltip-section-label">Latest Comment</div>' +
+        '<div class="task-super-tooltip-section-value">' + escapeHtml(latestComment ? latestComment.comment_text : 'Loading latest comment...') + '</div>' +
+      '</div>' +
+      '<div class="task-super-tooltip-section">' +
+        '<div class="task-super-tooltip-section-label">Risks</div>' +
+        risksMarkup +
       '</div>';
+    return tooltip;
+  }
+
+  function loadTaskTooltipDetails(task) {
+    if (taskTooltipDetailsCache[task.uid]) return Promise.resolve(taskTooltipDetailsCache[task.uid]);
+    return Promise.all([
+      Gantt.api.getTaskComments(task.uid),
+      Gantt.api.getTaskRisks(task.uid)
+    ]).then(function(results) {
+      var comments = results[0] || [];
+      var risks = results[1] || [];
+      var details = {
+        latestComment: comments.length ? comments[comments.length - 1] : { comment_text: 'No comments yet.' },
+        risks: risks.slice(0, 3),
+        riskOverflowCount: Math.max(0, risks.length - 3)
+      };
+      taskTooltipDetailsCache[task.uid] = details;
+      return details;
+    }).catch(function() {
+      return {
+        latestComment: { comment_text: 'Unable to load comments.' },
+        risks: [],
+        riskOverflowCount: 0
+      };
+    });
+  }
+
+  function showTaskTooltip(anchor, task) {
+    var tooltip = renderTaskTooltip(task, null);
+    if (taskTooltipHideTimer) {
+      window.clearTimeout(taskTooltipHideTimer);
+      taskTooltipHideTimer = null;
+    }
+    var requestId = ++taskTooltipRequestId;
     tooltip.hidden = false;
     positionTaskTooltip(anchor);
+    loadTaskTooltipDetails(task).then(function(details) {
+      if (!taskTooltipEl || taskTooltipEl.hidden || requestId !== taskTooltipRequestId) return;
+      renderTaskTooltip(task, details);
+      positionTaskTooltip(anchor);
+    });
   }
 
   function bindTaskTooltip(anchor, task) {
@@ -86,6 +151,7 @@ Gantt.table = (function() {
     var isEditable = Gantt.state.isEditMode();
     var disabledAttr = isEditable ? '' : ' disabled';
     var bindRagTooltip = Gantt.ragTooltip && Gantt.ragTooltip.bind;
+    taskTooltipDetailsCache = {};
     if (!el.taskTbody) return;
     el.taskTbody.innerHTML = visibleTree.map(function(t) {
       var rag = taskRag[t.uid] || 'none';
