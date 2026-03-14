@@ -9,6 +9,18 @@ Gantt.gantt = (function() {
   var activeTooltip = null;
   var tooltipHideTimer = null;
 
+  function parseTaskDate(value) {
+    if (!value) return null;
+    if (value instanceof Date) return new Date(value.getTime());
+    var text = String(value).trim();
+    var match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
+    if (match) {
+      return new Date(parseInt(match[1], 10), parseInt(match[2], 10) - 1, parseInt(match[3], 10));
+    }
+    var parsed = new Date(text);
+    return isNaN(parsed.getTime()) ? null : parsed;
+  }
+
   function dateAtStart(d) {
     return new Date(d.getFullYear(), d.getMonth(), d.getDate());
   }
@@ -346,12 +358,12 @@ Gantt.gantt = (function() {
     var minDate = null, maxDate = null;
     tree.forEach(function(t) {
       if (t.start_date) {
-        var d = new Date(t.start_date);
-        if (!minDate || d < minDate) minDate = d;
+        var d = parseTaskDate(t.start_date);
+        if (d && (!minDate || d < minDate)) minDate = d;
       }
       if (t.end_date) {
-        var d2 = new Date(t.end_date);
-        if (!maxDate || d2 > maxDate) maxDate = d2;
+        var d2 = parseTaskDate(t.end_date);
+        if (d2 && (!maxDate || d2 > maxDate)) maxDate = d2;
       }
     });
     if (!minDate) minDate = new Date();
@@ -378,7 +390,7 @@ Gantt.gantt = (function() {
       var today = new Date();
       today.setHours(0, 0, 0, 0);
       var daysFromStart = (today - minDateStart) / dayMs;
-      var todayPx = Math.round(daysFromStart * pxPerDay);
+      var todayPx = Math.round((daysFromStart * pxPerDay) + (pxPerDay / 2));
       timelineInner.setAttribute('data-total-width', totalWidth);
       timelineInner.setAttribute('data-today-px', Math.max(0, Math.min(totalWidth, todayPx)));
       timelineInner.setAttribute('data-px-per-day', pxPerDay);
@@ -427,12 +439,14 @@ Gantt.gantt = (function() {
       barWrap.style.position = 'relative';
       var left = 0, w = 0;
       if (t.start_date && t.end_date) {
-        var start = new Date(t.start_date);
-        var end = new Date(t.end_date);
-        left = Math.max(0, (dateAtStart(start) - minDateStart) / dayMs) * pxPerDay;
-        w = isMilestone
-          ? Math.max(18, Math.min(24, pxPerDay * 0.9))
-          : Math.max(12, (Math.max(1, Math.round((dateAtStart(end) - dateAtStart(start)) / dayMs) + 1)) * pxPerDay);
+        var start = parseTaskDate(t.start_date);
+        var end = parseTaskDate(t.end_date);
+        if (start && end) {
+          left = Math.max(0, (dateAtStart(start) - minDateStart) / dayMs) * pxPerDay;
+          w = isMilestone
+            ? Math.max(18, Math.min(24, pxPerDay * 0.9))
+            : Math.max(12, (Math.max(1, Math.round((dateAtStart(end) - dateAtStart(start)) / dayMs) + 1)) * pxPerDay);
+        }
       } else {
         left = 0;
         w = isMilestone ? 18 : Math.max(48, pxPerDay * 7);

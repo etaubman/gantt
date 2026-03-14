@@ -10,7 +10,6 @@ Gantt.workspace = (function() {
   var escapeHtml = Gantt.utils.escapeHtml;
   var showToast = Gantt.utils.showToast;
   var prettyDate = Gantt.utils.prettyDate;
-  var GANTT_VERTICAL_OFFSET = 5;
   var EMPLOYEE_ID_RE = /^[a-zA-Z]{2}[0-9]{5}$/;
 
   var scrollSyncDone = false;
@@ -23,7 +22,7 @@ Gantt.workspace = (function() {
     var el = state.getEl();
     if (!el.taskTableWrap || !el.ganttBody || !el.ganttBodyViewport) return;
     var top = el.taskTableWrap.scrollTop;
-    el.ganttBody.style.transform = 'translateY(' + ((-top) - GANTT_VERTICAL_OFFSET) + 'px)';
+    el.ganttBody.style.transform = 'translateY(' + (-top) + 'px)';
   }
   function setupScrollSync() {
     var el = state.getEl();
