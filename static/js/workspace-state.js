@@ -13,6 +13,10 @@ Gantt.state = (function() {
   let editMode = window.localStorage.getItem(MODE_STORAGE_KEY) === 'edit' && !!employeeId;
   let editLock = { locked: false, employee_id: null, locked_at: null, updated_at: null };
   let selectedDomainUid = 'all';
+  let selectedAccountable = 'all';
+  let selectedResponsible = 'all';
+  let selectedRag = 'all';
+  let selectedStatus = 'all';
 
   const ZOOM_PX_PER_DAY = { years: 1, quarters: 2, months: 4, weeks: 8, days: 16 };
   const DEFAULT_ZOOM = 'months';
@@ -47,6 +51,11 @@ Gantt.state = (function() {
     taskDetailModalTitle: document.getElementById('task-detail-modal-title'),
     taskDetailModalClose: document.getElementById('task-detail-modal-close'),
     domainFilterSelect: document.getElementById('domain-filter-select'),
+    accountableFilterSelect: document.getElementById('accountable-filter-select'),
+    responsibleFilterSelect: document.getElementById('responsible-filter-select'),
+    ragFilterSelect: document.getElementById('rag-filter-select'),
+    statusFilterSelect: document.getElementById('status-filter-select'),
+    btnClearFilters: document.getElementById('btn-clear-filters'),
     workspaceModeIndicator: document.getElementById('workspace-mode-indicator'),
     workspaceModeToggle: document.getElementById('workspace-mode-toggle'),
     btnExport: document.getElementById('btn-export'),
@@ -73,14 +82,15 @@ Gantt.state = (function() {
       });
     });
     const out = [];
-    function walk(parentKey, depth) {
+    function walk(parentKey, depth, prefix) {
       const list = byParent[parentKey] || [];
-      list.forEach(function(t) {
-        out.push({ ...t, depth: depth });
-        walk(t.uid, depth + 1);
+      list.forEach(function(t, index) {
+        var hierarchyNumber = prefix ? (prefix + '.' + (index + 1)) : String(index + 1);
+        out.push({ ...t, depth: depth, hierarchy_number: hierarchyNumber });
+        walk(t.uid, depth + 1, hierarchyNumber);
       });
     }
-    walk('__root__', 0);
+    walk('__root__', 0, '');
     return out;
   }
 
@@ -139,6 +149,10 @@ Gantt.state = (function() {
     getTaskRag: function() { return taskRag; },
     getSelectedTaskUid: function() { return selectedTaskUid; },
     getSelectedDomainUid: function() { return selectedDomainUid; },
+    getSelectedAccountable: function() { return selectedAccountable; },
+    getSelectedResponsible: function() { return selectedResponsible; },
+    getSelectedRag: function() { return selectedRag; },
+    getSelectedStatus: function() { return selectedStatus; },
     isEditMode: function() { return editMode; },
     getEmployeeId: function() { return employeeId; },
     getEditLock: function() { return editLock; },
@@ -156,6 +170,10 @@ Gantt.state = (function() {
     setTaskRag: function(r) { taskRag = r; },
     setSelectedTaskUid: function(uid) { selectedTaskUid = uid; },
     setSelectedDomainUid: function(uid) { selectedDomainUid = uid || 'all'; },
+    setSelectedAccountable: function(value) { selectedAccountable = value || 'all'; },
+    setSelectedResponsible: function(value) { selectedResponsible = value || 'all'; },
+    setSelectedRag: function(value) { selectedRag = value || 'all'; },
+    setSelectedStatus: function(value) { selectedStatus = value || 'all'; },
     setEditLock: function(lock) {
       editLock = lock || { locked: false, employee_id: null, locked_at: null, updated_at: null };
     },

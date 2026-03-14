@@ -293,23 +293,52 @@ Gantt.workspace = (function() {
 
   function getFilteredTree(tree) {
     var domainUid = state.getSelectedDomainUid();
-    if (!domainUid || domainUid === 'all') return tree;
-    var startIndex = -1;
-    for (var i = 0; i < tree.length; i++) {
-      if (tree[i].uid === domainUid) {
-        startIndex = i;
-        break;
+    var scopedTree = tree;
+    if (domainUid && domainUid !== 'all') {
+      var startIndex = -1;
+      for (var i = 0; i < tree.length; i++) {
+        if (tree[i].uid === domainUid) {
+          startIndex = i;
+          break;
+        }
+      }
+      if (startIndex !== -1) {
+        var rootDepth = tree[startIndex].depth;
+        scopedTree = [];
+        for (var j = startIndex; j < tree.length; j++) {
+          var scopedTask = tree[j];
+          if (j > startIndex && scopedTask.depth <= rootDepth) break;
+          scopedTree.push(scopedTask);
+        }
       }
     }
-    if (startIndex === -1) return tree;
-    var rootDepth = tree[startIndex].depth;
-    var filtered = [];
-    for (var j = startIndex; j < tree.length; j++) {
-      var task = tree[j];
-      if (j > startIndex && task.depth <= rootDepth) break;
-      filtered.push(task);
+
+    var selectedAccountable = state.getSelectedAccountable();
+    var selectedResponsible = state.getSelectedResponsible();
+    var selectedRag = state.getSelectedRag();
+    var selectedStatus = state.getSelectedStatus();
+    if (selectedAccountable === 'all' && selectedResponsible === 'all' && selectedRag === 'all' && selectedStatus === 'all') {
+      return scopedTree;
     }
-    return filtered;
+
+    var byUid = {};
+    scopedTree.forEach(function(task) { byUid[task.uid] = task; });
+    var included = {};
+    scopedTree.forEach(function(task) {
+      var rag = state.getTaskRag()[task.uid] || 'none';
+      var matches =
+        (selectedAccountable === 'all' || (task.accountable_person || '__unassigned__') === selectedAccountable) &&
+        (selectedResponsible === 'all' || (task.responsible_party || '__unassigned__') === selectedResponsible) &&
+        (selectedRag === 'all' || rag === selectedRag) &&
+        (selectedStatus === 'all' || (task.status || 'not_started') === selectedStatus);
+      if (!matches) return;
+      var current = task;
+      while (current) {
+        included[current.uid] = true;
+        current = current.parent_task_uid ? byUid[current.parent_task_uid] : null;
+      }
+    });
+    return scopedTree.filter(function(task) { return included[task.uid]; });
   }
 
   function updateDomainOptions(tree) {
@@ -325,6 +354,74 @@ Gantt.workspace = (function() {
       state.setSelectedDomainUid('all');
     }
     el.domainFilterSelect.value = current || 'all';
+  }
+
+  function updateTaskFilterOptions(tasks, taskRagMap) {
+    var el = state.getEl();
+
+    function uniqueSorted(values) {
+      return Array.from(new Set(values)).sort(function(a, b) {
+        return a.localeCompare(b);
+      });
+    }
+
+    function renderOptions(selectEl, allLabel, values, formatter) {
+      if (!selectEl) return;
+      var current = selectEl.value || 'all';
+      selectEl.innerHTML = '<option value="all">' + allLabel + '</option>' + values.map(function(value) {
+        return '<option value="' + escapeHtml(value) + '">' + escapeHtml(formatter ? formatter(value) : value) + '</option>';
+      }).join('');
+      if (!values.some(function(value) { return value === current; })) current = 'all';
+      selectEl.value = current;
+    }
+
+    var accountableValues = uniqueSorted(tasks.map(function(task) { return task.accountable_person || '__unassigned__'; }));
+    var responsibleValues = uniqueSorted(tasks.map(function(task) { return task.responsible_party || '__unassigned__'; }));
+    var ragValues = uniqueSorted(tasks.map(function(task) { return taskRagMap[task.uid] || 'none'; }));
+    var statusValues = uniqueSorted(tasks.map(function(task) { return task.status || 'not_started'; }));
+
+    renderOptions(el.accountableFilterSelect, 'All accountable', accountableValues, function(value) {
+      return value === '__unassigned__' ? 'Unassigned' : value;
+    });
+    renderOptions(el.responsibleFilterSelect, 'All responsible', responsibleValues, function(value) {
+      return value === '__unassigned__' ? 'Unassigned' : value;
+    });
+    renderOptions(el.ragFilterSelect, 'All RAG', ragValues, function(value) {
+      return value === 'none' ? 'No RAG' : Gantt.utils.titleCaseStatus(value);
+    });
+    renderOptions(el.statusFilterSelect, 'All status', statusValues, function(value) {
+      return Gantt.utils.titleCaseStatus(value);
+    });
+
+    state.setSelectedAccountable(el.accountableFilterSelect ? el.accountableFilterSelect.value : 'all');
+    state.setSelectedResponsible(el.responsibleFilterSelect ? el.responsibleFilterSelect.value : 'all');
+    state.setSelectedRag(el.ragFilterSelect ? el.ragFilterSelect.value : 'all');
+    state.setSelectedStatus(el.statusFilterSelect ? el.statusFilterSelect.value : 'all');
+  }
+
+  function updateTaskFilterUi() {
+    var el = state.getEl();
+    var count = 0;
+    if (state.getSelectedAccountable() !== 'all') count += 1;
+    if (state.getSelectedResponsible() !== 'all') count += 1;
+    if (state.getSelectedRag() !== 'all') count += 1;
+    if (state.getSelectedStatus() !== 'all') count += 1;
+    if (el.btnClearFilters) {
+      el.btnClearFilters.disabled = count === 0;
+    }
+  }
+
+  function clearTaskFilters() {
+    var el = state.getEl();
+    state.setSelectedAccountable('all');
+    state.setSelectedResponsible('all');
+    state.setSelectedRag('all');
+    state.setSelectedStatus('all');
+    if (el.accountableFilterSelect) el.accountableFilterSelect.value = 'all';
+    if (el.responsibleFilterSelect) el.responsibleFilterSelect.value = 'all';
+    if (el.ragFilterSelect) el.ragFilterSelect.value = 'all';
+    if (el.statusFilterSelect) el.statusFilterSelect.value = 'all';
+    render();
   }
 
   function openTaskDetail(uid) {
@@ -407,6 +504,8 @@ Gantt.workspace = (function() {
     var taskRag = state.getTaskRag();
     var tree = state.buildTaskTree(tasks);
     updateDomainOptions(tree);
+    updateTaskFilterOptions(tasks, taskRag);
+    updateTaskFilterUi();
     var filteredTree = getFilteredTree(tree);
     var visibleTree = state.getVisibleTree(filteredTree);
     var hasChildren = state.getHasChildren(tree);
@@ -486,6 +585,33 @@ Gantt.workspace = (function() {
         state.setSelectedDomainUid(el.domainFilterSelect.value || 'all');
         render();
       });
+    }
+    if (el.accountableFilterSelect) {
+      el.accountableFilterSelect.addEventListener('change', function() {
+        state.setSelectedAccountable(el.accountableFilterSelect.value || 'all');
+        render();
+      });
+    }
+    if (el.responsibleFilterSelect) {
+      el.responsibleFilterSelect.addEventListener('change', function() {
+        state.setSelectedResponsible(el.responsibleFilterSelect.value || 'all');
+        render();
+      });
+    }
+    if (el.ragFilterSelect) {
+      el.ragFilterSelect.addEventListener('change', function() {
+        state.setSelectedRag(el.ragFilterSelect.value || 'all');
+        render();
+      });
+    }
+    if (el.statusFilterSelect) {
+      el.statusFilterSelect.addEventListener('change', function() {
+        state.setSelectedStatus(el.statusFilterSelect.value || 'all');
+        render();
+      });
+    }
+    if (el.btnClearFilters) {
+      el.btnClearFilters.addEventListener('click', clearTaskFilters);
     }
     if (el.workspaceModeToggle) {
       el.workspaceModeToggle.addEventListener('click', toggleMode);

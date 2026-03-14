@@ -144,14 +144,19 @@
 
 .task-panel .panel-toolbar,
 .gantt-toolbar {
-  min-height: var(--header-toolbar-height);
+  min-height: 70px;
   padding: 0.75rem 1rem;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 0.65rem;
   flex-wrap: wrap;
   border-bottom: 1px solid rgba(255,255,255,0.05);
   background: rgba(255,255,255,0.03);
+}
+
+.task-panel-toolbar {
+  align-items: center;
+  gap: 0.75rem;
 }
 
 .task-toolbar-group {
@@ -161,22 +166,66 @@
   margin-right: auto;
 }
 
+.task-toolbar-group-compact {
+  margin-right: 0;
+}
+
+.task-toolbar-group-domain {
+  margin-right: 0;
+}
+
+.task-toolbar-group-stacked {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.18rem;
+}
+
+.task-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
 .task-toolbar-label {
-  font-size: 0.72rem;
+  font-size: 0.64rem;
   font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
+  line-height: 1;
 }
 
 .task-filter-select {
-  min-height: 36px;
-  min-width: 180px;
-  padding: 0 0.8rem;
+  min-height: 32px;
+  min-width: 170px;
+  padding: 0 2rem 0 0.72rem;
   border: 1px solid var(--border-default);
   border-radius: 999px;
   background: rgba(255,255,255,0.03);
   color: var(--text-primary);
+  font-size: 0.82rem;
+  line-height: 1;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #9fb2ca 50%),
+    linear-gradient(135deg, #9fb2ca 50%, transparent 50%);
+  background-position:
+    calc(100% - 15px) calc(50% - 1px),
+    calc(100% - 10px) calc(50% - 1px);
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+.task-toolbar-group-compact .task-filter-select {
+  min-width: 124px;
+}
+
+.task-clear-filters-btn {
+  min-height: 32px;
+  padding: 0 0.75rem;
+  font-size: 0.8rem;
 }
 
 .task-table,
@@ -255,10 +304,29 @@
   box-shadow: inset 3px 0 0 var(--accent);
 }
 
-.task-table .indent-0 { padding-left: 1rem; }
-.task-table .indent-1 { padding-left: 2rem; }
-.task-table .indent-2 { padding-left: 3rem; }
-.task-table .indent-3 { padding-left: 4rem; }
+.task-table .indent-0 { padding-left: 0.25rem; }
+.task-table .indent-1 { padding-left: 1.25rem; }
+.task-table .indent-2 { padding-left: 2.25rem; }
+.task-table .indent-3 { padding-left: 3.25rem; }
+
+.task-cell-shell {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.task-hierarchy-number {
+  display: block;
+  width: 64px;
+  color: var(--text-muted);
+  font-size: 0.69rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-align: left;
+  white-space: nowrap;
+}
 
 .task-cell-main {
   display: flex;
@@ -561,25 +629,44 @@
   gap: 0.4rem;
 }
 
+.gantt-toolbar-group-stacked {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.18rem;
+}
+
 .gantt-toolbar-label {
-  font-size: 0.72rem;
+  font-size: 0.64rem;
   font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
+  line-height: 1;
 }
 
 .gantt-zoom-select {
-  min-height: 36px;
-  padding: 0 0.8rem;
+  min-height: 32px;
+  padding: 0 2rem 0 0.72rem;
   border: 1px solid var(--border-default);
   border-radius: 999px;
   background: rgba(255,255,255,0.03);
   color: var(--text-primary);
+  font-size: 0.82rem;
+  line-height: 1;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #9fb2ca 50%),
+    linear-gradient(135deg, #9fb2ca 50%, transparent 50%);
+  background-position:
+    calc(100% - 15px) calc(50% - 1px),
+    calc(100% - 10px) calc(50% - 1px);
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
 }
 
 .gantt-toolbar-btn {
-  min-height: 36px;
+  min-height: 32px;
   padding: 0 0.75rem;
 }
 

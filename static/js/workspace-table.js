@@ -15,6 +15,7 @@ Gantt.table = (function() {
       var rag = taskRag[t.uid] || 'none';
       var milestoneMarker = t.is_milestone ? '<span class="task-milestone-marker" aria-hidden="true"></span>' : '';
       var indent = 'indent-' + Math.min(t.depth, 3);
+      var hierarchyNumber = t.hierarchy_number || '';
       var expanded = isExpanded(t.uid);
       var hasKids = hasChildren[t.uid];
       var toggleClass = hasKids ? (expanded ? 'task-toggle expanded' : 'task-toggle collapsed') : 'task-toggle empty';
@@ -23,12 +24,15 @@ Gantt.table = (function() {
       var progress = Math.max(0, Math.min(100, t.progress != null ? t.progress : 0));
       var description = t.description || 'No description';
       return '<tr data-uid="' + escapeHtml(t.uid) + '" class="' + (selectedTaskUid === t.uid ? 'selected' : '') + '">' +
-        '<td class="' + indent + '">' +
-          '<div class="task-cell-main">' +
+        '<td>' +
+          '<div class="task-cell-shell">' +
+            '<span class="task-hierarchy-number">' + escapeHtml(hierarchyNumber) + '</span>' +
+            '<div class="task-cell-main ' + indent + '">' +
             '<span class="' + toggleClass + '" data-uid="' + escapeHtml(t.uid) + '" data-has-children="' + (hasKids ? '1' : '0') + '" title="' + escapeHtml(toggleTitle) + '" aria-label="' + escapeHtml(toggleTitle) + '">' + toggleChar + '</span>' +
             milestoneMarker +
             '<span class="rag-dot ' + rag + '" aria-hidden="true"></span>' +
             '<div class="task-name" title="' + escapeHtml(description) + '">' + escapeHtml(t.name) + '</div>' +
+            '</div>' +
           '</div>' +
         '</td>' +
         '<td><span class="person-chip">' + escapeHtml(t.accountable_person || 'Unassigned') + '</span></td>' +
