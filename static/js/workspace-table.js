@@ -166,7 +166,6 @@ Gantt.table = (function() {
   function render(visibleTree, taskRag, selectedTaskUid, hasChildren, isExpanded, onRowSelect, onToggle, onOpenDetail, onAddSubtask) {
     var el = Gantt.state.getEl();
     var isEditable = Gantt.state.isEditMode();
-    var disabledAttr = isEditable ? '' : ' disabled';
     var bindRagTooltip = Gantt.ragTooltip && Gantt.ragTooltip.bind;
     taskTooltipDetailsCache = {};
     if (!el.taskTbody) return;
@@ -208,8 +207,9 @@ Gantt.table = (function() {
             '<span class="table-progress-value">' + progress + '%</span>' +
           '</div>' +
         '</td>' +
-        '<td class="task-row-actions">' +
-          '<button type="button" class="btn-row-action btn-add-subtask-row" data-uid="' + escapeHtml(t.uid) + '" title="' + (isEditable ? 'Add subtask' : 'Switch to edit mode to add subtasks') + '"' + disabledAttr + '>+</button>' +
+        '<td class="task-row-actions">' + (isEditable
+          ? ('<button type="button" class="btn-row-action btn-add-subtask-row" data-uid="' + escapeHtml(t.uid) + '" title="Add subtask">+</button>')
+          : '') +
         '</td>' +
       '</tr>';
     }).join('');

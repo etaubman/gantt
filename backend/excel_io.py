@@ -13,7 +13,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 
 from backend.database import get_conn, DB_PATH
 
-SCHEMA_VERSION = "2"
+SCHEMA_VERSION = "3"
 APP_VERSION = "1.0.0"
 
 
@@ -115,6 +115,10 @@ def export_project_to_xlsx(project_uid: str) -> str | None:
                       prior_value, new_value, metadata, created_at
                FROM audit_events ORDER BY created_at ASC"""
         ).fetchall()]
+        edit_lock = conn.execute(
+            "SELECT lock_name, employee_id, locked_at, updated_at FROM edit_lock WHERE lock_name = ?",
+            ("workspace",),
+        ).fetchone()
         for t in tasks:
             rag.extend([dict(r) for r in conn.execute("SELECT uid, task_uid, status, rationale, path_to_green, created_at FROM rag_statuses WHERE task_uid = ?", (t["uid"],)).fetchall()])
             comments.extend([dict(r) for r in conn.execute("SELECT uid, task_uid, author, comment_text, created_at FROM comments WHERE task_uid = ?", (t["uid"],)).fetchall()])
@@ -178,6 +182,16 @@ def export_project_to_xlsx(project_uid: str) -> str | None:
             event.get("new_value") or "",
             event.get("metadata") or "",
             event["created_at"],
+        ])
+
+    ws_lock = wb.create_sheet("Edit Lock")
+    ws_lock.append(["Lock Name", "Employee ID", "Locked At", "Updated At"])
+    if edit_lock:
+        ws_lock.append([
+            edit_lock["lock_name"],
+            edit_lock["employee_id"],
+            edit_lock["locked_at"],
+            edit_lock["updated_at"],
         ])
 
     dir_path = os.path.dirname(DB_PATH) or tempfile.gettempdir()
@@ -537,10 +551,56 @@ def import_xlsx(content: bytes) -> dict:
                     "created_at": str(row[10]) if len(row) > 10 and row[10] else datetime.utcnow().isoformat() + "Z",
                 })
 
+    ws_lock = get_optional_sheet("Edit Lock")
+    edit_lock = None
+    if ws_lock is not None:
+        rows_lock = list(ws_lock.iter_rows(min_row=2, values_only=True))
+        for row in rows_lock:
+            if row and row[0]:
+                edit_lock = {
+                    "lock_name": str(row[0]).strip(),
+                    "employee_id": str(row[1]).strip() if len(row) > 1 and row[1] else "",
+                    "locked_at": str(row[2]) if len(row) > 2 and row[2] else datetime.utcnow().isoformat() + "Z",
+                    "updated_at": str(row[3]) if len(row) > 3 and row[3] else datetime.utcnow().isoformat() + "Z",
+                }
+                break
+
     wb.close()
 
     # Insert in order: projects, tasks, dependencies, RAG, comments, risks
     with get_conn() as conn:
+        conn.execute("DELETE FROM audit_events")
+        project_uids = [p["uid"] for p in projects]
+        if project_uids:
+            project_placeholders = ",".join(["?"] * len(project_uids))
+            existing_task_uids = [
+                row["uid"]
+                for row in conn.execute(
+                    f"SELECT uid FROM tasks WHERE project_uid IN ({project_placeholders})",
+                    tuple(project_uids),
+                ).fetchall()
+            ]
+            imported_task_uids = [t["uid"] for t in tasks]
+            all_task_uids = sorted(set(existing_task_uids + imported_task_uids))
+            conn.execute(
+                f"DELETE FROM dependencies WHERE project_uid IN ({project_placeholders})",
+                tuple(project_uids),
+            )
+            if all_task_uids:
+                task_placeholders = ",".join(["?"] * len(all_task_uids))
+                conn.execute(f"DELETE FROM rag_statuses WHERE task_uid IN ({task_placeholders})", tuple(all_task_uids))
+                conn.execute(f"DELETE FROM comments WHERE task_uid IN ({task_placeholders})", tuple(all_task_uids))
+                conn.execute(f"DELETE FROM risks WHERE task_uid IN ({task_placeholders})", tuple(all_task_uids))
+                conn.execute(
+                    f"""DELETE FROM dependencies
+                        WHERE predecessor_task_uid IN ({task_placeholders})
+                           OR successor_task_uid IN ({task_placeholders})""",
+                    tuple(all_task_uids) + tuple(all_task_uids),
+                )
+            conn.execute(f"DELETE FROM tasks WHERE project_uid IN ({project_placeholders})", tuple(project_uids))
+
+        conn.execute("DELETE FROM edit_lock")
+
         for p in projects:
             conn.execute("INSERT OR REPLACE INTO projects (uid, name, created_at) VALUES (?, ?, ?)", (p["uid"], p["name"], p["created_at"]))
         for t in tasks:
@@ -572,5 +632,19 @@ def import_xlsx(content: bytes) -> dict:
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (event["uid"], event["actor_employee_id"], event["action_type"], event["entity_type"], event["entity_uid"], event["task_uid"], event["task_name"], event["prior_value"], event["new_value"], event["metadata"], event["created_at"]),
             )
+        if edit_lock and edit_lock["employee_id"]:
+            conn.execute(
+                "INSERT OR REPLACE INTO edit_lock (lock_name, employee_id, locked_at, updated_at) VALUES (?, ?, ?, ?)",
+                (edit_lock["lock_name"], edit_lock["employee_id"], edit_lock["locked_at"], edit_lock["updated_at"]),
+            )
 
-    return {"projects": len(projects), "tasks": len(tasks), "dependencies": len(deps), "rag": len(rag), "comments": len(comments), "risks": len(risks), "audit_events": len(audit_events)}
+    return {
+        "projects": len(projects),
+        "tasks": len(tasks),
+        "dependencies": len(deps),
+        "rag": len(rag),
+        "comments": len(comments),
+        "risks": len(risks),
+        "audit_events": len(audit_events),
+        "edit_lock": 1 if edit_lock and edit_lock["employee_id"] else 0,
+    }

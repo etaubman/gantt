@@ -58,6 +58,12 @@
   border-color: rgba(97, 168, 255, 0.08);
 }
 
+.header-action-group .btn {
+  min-height: 38px;
+  padding: 0 1rem;
+  border-radius: 999px;
+}
+
 .project-heading {
   display: flex;
   flex-direction: column;

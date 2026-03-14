@@ -41,6 +41,23 @@ Gantt.detail = (function() {
     }, 1200);
   }
 
+  function readonlyField(label, value, options) {
+    var extraClass = options && options.extraClass ? (' ' + options.extraClass) : '';
+    var displayValue = value == null || value === '' ? '—' : String(value);
+    return '<div class="field field-readonly' + extraClass + '">' +
+      '<label>' + escapeHtml(label) + '</label>' +
+      '<div class="field-readonly-value">' + escapeHtml(displayValue) + '</div>' +
+    '</div>';
+  }
+
+  function readonlyRichField(label, value) {
+    var displayValue = value == null || value === '' ? '—' : String(value);
+    return '<div class="field field-readonly field-readonly-rich">' +
+      '<label>' + escapeHtml(label) + '</label>' +
+      '<div class="field-readonly-value">' + escapeHtml(displayValue) + '</div>' +
+    '</div>';
+  }
+
   function openTaskModal() {
     var el = Gantt.state.getEl();
     if (el.taskDetailModal) {
@@ -84,6 +101,10 @@ Gantt.detail = (function() {
       lastRenderedTaskUid = selectedTaskUid;
     }
 
+    var scheduleLabel = task.is_milestone
+      ? prettyDate(task.start_date || task.end_date)
+      : (prettyDate(task.start_date) + ' - ' + prettyDate(task.end_date));
+
     if (el.taskDetailModalTitle) el.taskDetailModalTitle.textContent = task.name || 'Edit task';
     el.detailContent.innerHTML =
       '<div class="detail-topbar">' +
@@ -91,14 +112,16 @@ Gantt.detail = (function() {
           (task.is_milestone ? '<span class="summary-chip summary-chip-milestone">Milestone</span>' : '') +
           '<span class="summary-chip">' + escapeHtml(task.accountable_person || 'No accountable') + '</span>' +
           '<span class="summary-chip">' + escapeHtml(task.responsible_party || 'No responsible') + '</span>' +
-          '<span class="summary-chip">' + escapeHtml(task.is_milestone ? prettyDate(task.start_date || task.end_date) : (prettyDate(task.start_date) + ' - ' + prettyDate(task.end_date))) + '</span>' +
+          '<span class="summary-chip">' + escapeHtml(scheduleLabel) + '</span>' +
           '<span class="summary-chip summary-chip-status">' + escapeHtml(titleCaseStatus(task.status || 'not_started')) + ' • ' + (task.progress != null ? task.progress : 0) + '%</span>' +
           '<span class="summary-chip summary-chip-mode">' + (isEditable ? ('Edit mode' + (employeeId ? ' • ' + escapeHtml(employeeId) : '')) : 'Read mode') + '</span>' +
         '</div>' +
-        '<div class="detail-save-stack">' +
-          '<button type="button" class="btn btn-primary" id="detail-save"' + disabledAttr + '>Save task</button>' +
-          '<div class="detail-save-hint">' + (isEditable ? 'Changes update the plan immediately.' : 'Switch to edit mode to save changes.') + '</div>' +
-        '</div>' +
+        (isEditable
+          ? ('<div class="detail-save-stack">' +
+              '<button type="button" class="btn btn-primary" id="detail-save">Save task</button>' +
+              '<div class="detail-save-hint">Changes update the plan immediately.</div>' +
+            '</div>')
+          : '<div class="detail-readonly-note">Read-only view</div>') +
       '</div>' +
       '<div class="detail-tabs" role="tablist" aria-label="Task detail sections">' +
         '<button type="button" class="detail-tab' + (activeTabName === 'task' ? ' is-active' : '') + '" data-tab-btn="task">Task</button>' +
@@ -115,30 +138,42 @@ Gantt.detail = (function() {
               '<p class="section-copy">Core task details, ownership, and schedule window.</p>' +
             '</div>' +
           '</div>' +
-          '<div class="field"><label>Name</label><input type="text" id="detail-name" value="' + escapeHtml(task.name) + '" placeholder="Task name"' + disabledAttr + ' /></div>' +
-          '<div class="field"><label>Description</label><textarea id="detail-desc"' + disabledAttr + '>' + escapeHtml(task.description) + '</textarea></div>' +
-          '<div class="form-row">' +
-            '<div class="field"><label>Accountable</label><input type="text" id="detail-accountable" value="' + escapeHtml(task.accountable_person) + '"' + disabledAttr + ' /></div>' +
-            '<div class="field"><label>Responsible</label><input type="text" id="detail-responsible" value="' + escapeHtml(task.responsible_party) + '"' + disabledAttr + ' /></div>' +
-          '</div>' +
-          '<label class="detail-toggle-row">' +
-            '<input type="checkbox" id="detail-is-milestone"' + (task.is_milestone ? ' checked' : '') + disabledAttr + ' />' +
-            '<span>Render as milestone on the timeline</span>' +
-          '</label>' +
-          '<div class="form-row">' +
-            '<div class="field"><label>' + (task.is_milestone ? 'Milestone date' : 'Start date') + '</label><input type="date" id="detail-start" value="' + dateStr(task.start_date) + '"' + disabledAttr + ' /></div>' +
-            '<div class="field"><label>' + (task.is_milestone ? 'Mirror date' : 'End date') + '</label><input type="date" id="detail-end" value="' + dateStr(task.end_date) + '"' + disabledAttr + ' /></div>' +
-          '</div>' +
-          '<div class="detail-danger-zone">' +
-            '<div class="detail-danger-copy">' +
-              '<div class="detail-danger-title">Remove from plan view</div>' +
-              '<div class="detail-danger-text">Soft-deleted tasks disappear from the workspace. You can either keep subtasks by shifting them up one level, or soft-delete the entire subtree.</div>' +
-            '</div>' +
-            '<div class="detail-danger-actions">' +
-              '<button type="button" class="btn btn-secondary" id="detail-soft-delete-shift"' + disabledAttr + '>Delete, keep subtasks</button>' +
-              '<button type="button" class="btn btn-danger" id="detail-soft-delete-cascade"' + disabledAttr + '>Delete with subtasks</button>' +
-            '</div>' +
-          '</div>' +
+          (isEditable
+            ? ('<div class="field"><label>Name</label><input type="text" id="detail-name" value="' + escapeHtml(task.name) + '" placeholder="Task name" /></div>' +
+              '<div class="field"><label>Description</label><textarea id="detail-desc">' + escapeHtml(task.description) + '</textarea></div>' +
+              '<div class="form-row">' +
+                '<div class="field"><label>Accountable</label><input type="text" id="detail-accountable" value="' + escapeHtml(task.accountable_person) + '" /></div>' +
+                '<div class="field"><label>Responsible</label><input type="text" id="detail-responsible" value="' + escapeHtml(task.responsible_party) + '" /></div>' +
+              '</div>' +
+              '<label class="detail-toggle-row">' +
+                '<input type="checkbox" id="detail-is-milestone"' + (task.is_milestone ? ' checked' : '') + ' />' +
+                '<span>Render as milestone on the timeline</span>' +
+              '</label>' +
+              '<div class="form-row">' +
+                '<div class="field"><label>' + (task.is_milestone ? 'Milestone date' : 'Start date') + '</label><input type="date" id="detail-start" value="' + dateStr(task.start_date) + '" /></div>' +
+                '<div class="field"><label>' + (task.is_milestone ? 'Mirror date' : 'End date') + '</label><input type="date" id="detail-end" value="' + dateStr(task.end_date) + '" /></div>' +
+              '</div>' +
+              '<div class="detail-danger-zone">' +
+                '<div class="detail-danger-copy">' +
+                  '<div class="detail-danger-title">Remove from plan view</div>' +
+                  '<div class="detail-danger-text">Soft-deleted tasks disappear from the workspace. You can either keep subtasks by shifting them up one level, or soft-delete the entire subtree.</div>' +
+                '</div>' +
+                '<div class="detail-danger-actions">' +
+                  '<button type="button" class="btn btn-secondary" id="detail-soft-delete-shift">Delete, keep subtasks</button>' +
+                  '<button type="button" class="btn btn-danger" id="detail-soft-delete-cascade">Delete with subtasks</button>' +
+                '</div>' +
+              '</div>')
+            : (readonlyField('Name', task.name) +
+              readonlyRichField('Description', task.description || 'No description provided.') +
+              '<div class="form-row">' +
+                readonlyField('Accountable', task.accountable_person || 'No accountable') +
+                readonlyField('Responsible', task.responsible_party || 'No responsible') +
+              '</div>' +
+              readonlyField('Timeline type', task.is_milestone ? 'Milestone' : 'Task') +
+              '<div class="form-row">' +
+                readonlyField(task.is_milestone ? 'Milestone date' : 'Start date', prettyDate(task.start_date)) +
+                readonlyField(task.is_milestone ? 'Mirror date' : 'End date', prettyDate(task.end_date)) +
+              '</div>')) +
         '</div>' +
       '</div>' +
       '<div class="detail-tab-panel' + (activeTabName === 'health' ? ' is-active' : '') + '" data-tab-panel="health"' + (activeTabName === 'health' ? '' : ' hidden') + '>' +
@@ -150,30 +185,35 @@ Gantt.detail = (function() {
             '</div>' +
           '</div>' +
           '<div class="health-metrics">' +
-            '<div class="field"><label>Status</label>' +
-              '<select id="detail-status"' + disabledAttr + '>' +
-                '<option value="not_started"' + (task.status === 'not_started' ? ' selected' : '') + '>Not Started</option>' +
-                '<option value="in_progress"' + (task.status === 'in_progress' ? ' selected' : '') + '>In Progress</option>' +
-                '<option value="complete"' + (task.status === 'complete' ? ' selected' : '') + '>Complete</option>' +
-                '<option value="blocked"' + (task.status === 'blocked' ? ' selected' : '') + '>Blocked</option>' +
-                '<option value="cancelled"' + (task.status === 'cancelled' ? ' selected' : '') + '>Cancelled</option>' +
-              '</select>' +
-            '</div>' +
-            '<div class="field"><label>Progress %</label><input type="number" id="detail-progress" min="0" max="100" value="' + (task.progress != null ? task.progress : 0) + '"' + disabledAttr + ' /></div>' +
+            (isEditable
+              ? ('<div class="field"><label>Status</label>' +
+                  '<select id="detail-status">' +
+                    '<option value="not_started"' + (task.status === 'not_started' ? ' selected' : '') + '>Not Started</option>' +
+                    '<option value="in_progress"' + (task.status === 'in_progress' ? ' selected' : '') + '>In Progress</option>' +
+                    '<option value="complete"' + (task.status === 'complete' ? ' selected' : '') + '>Complete</option>' +
+                    '<option value="blocked"' + (task.status === 'blocked' ? ' selected' : '') + '>Blocked</option>' +
+                    '<option value="cancelled"' + (task.status === 'cancelled' ? ' selected' : '') + '>Cancelled</option>' +
+                  '</select>' +
+                '</div>' +
+                '<div class="field"><label>Progress %</label><input type="number" id="detail-progress" min="0" max="100" value="' + (task.progress != null ? task.progress : 0) + '" /></div>')
+              : (readonlyField('Status', titleCaseStatus(task.status || 'not_started')) +
+                readonlyField('Progress %', String(task.progress != null ? task.progress : 0)))) +
           '</div>' +
           '<div id="rag-current"></div>' +
-          '<div class="rag-composer">' +
-            '<div class="rag-composer-header">' +
-              '<div class="section-kicker">Update RAG</div>' +
-              '<div class="section-copy">Rationale is required for amber and red.</div>' +
-            '</div>' +
-            '<div class="rag-composer-row">' +
-              '<select id="rag-status"' + disabledAttr + '><option value="green">green</option><option value="amber">amber</option><option value="red">red</option></select>' +
-              '<input type="text" id="rag-rationale" placeholder="What changed and why?"' + disabledAttr + ' />' +
-              '<button type="button" class="btn btn-secondary" id="rag-add"' + disabledAttr + '>Update RAG</button>' +
-            '</div>' +
-            '<div class="field field-path-to-green"><label>Path to green</label><textarea id="rag-path-to-green" placeholder="Recovery plan, mitigation actions, owners, and milestones to return to green"' + disabledAttr + '></textarea></div>' +
-          '</div>' +
+          (isEditable
+            ? ('<div class="rag-composer">' +
+                '<div class="rag-composer-header">' +
+                  '<div class="section-kicker">Update RAG</div>' +
+                  '<div class="section-copy">Rationale is required for amber and red.</div>' +
+                '</div>' +
+                '<div class="rag-composer-row">' +
+                  '<select id="rag-status"><option value="green">green</option><option value="amber">amber</option><option value="red">red</option></select>' +
+                  '<input type="text" id="rag-rationale" placeholder="What changed and why?" />' +
+                  '<button type="button" class="btn btn-secondary" id="rag-add">Update RAG</button>' +
+                '</div>' +
+                '<div class="field field-path-to-green"><label>Path to green</label><textarea id="rag-path-to-green" placeholder="Recovery plan, mitigation actions, owners, and milestones to return to green"></textarea></div>' +
+              '</div>')
+            : '') +
           '<div id="rag-history"></div>' +
         '</div>' +
       '</div>' +
@@ -186,8 +226,10 @@ Gantt.detail = (function() {
             '</div>' +
           '</div>' +
           '<div id="comments-list"></div>' +
-          '<div class="field"><label>Comment</label><textarea id="comment-text" placeholder="' + (isEditable ? 'Add a comment' : 'Switch to edit mode to comment') + '"' + disabledAttr + '></textarea></div>' +
-          '<button type="button" class="btn btn-secondary" id="comment-add"' + disabledAttr + '>Add comment</button>' +
+          (isEditable
+            ? ('<div class="field"><label>Comment</label><textarea id="comment-text" placeholder="Add a comment"></textarea></div>' +
+              '<button type="button" class="btn btn-secondary" id="comment-add">Add comment</button>')
+            : '') +
         '</div>' +
       '</div>' +
       '<div class="detail-tab-panel' + (activeTabName === 'risks' ? ' is-active' : '') + '" data-tab-panel="risks"' + (activeTabName === 'risks' ? '' : ' hidden') + '>' +
@@ -199,19 +241,21 @@ Gantt.detail = (function() {
             '</div>' +
           '</div>' +
           '<div id="risks-list"></div>' +
-          '<button type="button" class="btn btn-secondary" id="risk-add-btn"' + disabledAttr + '>Add risk</button>' +
-          '<div id="risk-form" style="display:none; margin-top:0.5rem;">' +
-            '<div class="field"><input type="text" id="risk-title" placeholder="Title"' + disabledAttr + ' /></div>' +
-            '<div class="field"><textarea id="risk-desc" placeholder="Description"' + disabledAttr + '></textarea></div>' +
-            '<div class="form-row">' +
-              '<div class="field"><select id="risk-severity"' + disabledAttr + '><option value="low">low</option><option value="medium">medium</option><option value="high">high</option><option value="critical">critical</option></select></div>' +
-              '<div class="field"><select id="risk-status"' + disabledAttr + '><option value="open">open</option><option value="mitigated">mitigated</option><option value="closed">closed</option></select></div>' +
-            '</div>' +
-            '<div class="field"><input type="text" id="risk-owner" placeholder="Owner"' + disabledAttr + ' /></div>' +
-            '<div class="field"><textarea id="risk-mitigation" placeholder="Mitigation plan"' + disabledAttr + '></textarea></div>' +
-            '<button type="button" class="btn btn-primary" id="risk-save"' + disabledAttr + '>Save risk</button>' +
-            '<button type="button" class="btn btn-secondary" id="risk-cancel"' + disabledAttr + '>Cancel</button>' +
-          '</div>' +
+          (isEditable
+            ? ('<button type="button" class="btn btn-secondary" id="risk-add-btn">Add risk</button>' +
+              '<div id="risk-form" style="display:none; margin-top:0.5rem;">' +
+                '<div class="field"><input type="text" id="risk-title" placeholder="Title" /></div>' +
+                '<div class="field"><textarea id="risk-desc" placeholder="Description"></textarea></div>' +
+                '<div class="form-row">' +
+                  '<div class="field"><select id="risk-severity"><option value="low">low</option><option value="medium">medium</option><option value="high">high</option><option value="critical">critical</option></select></div>' +
+                  '<div class="field"><select id="risk-status"><option value="open">open</option><option value="mitigated">mitigated</option><option value="closed">closed</option></select></div>' +
+                '</div>' +
+                '<div class="field"><input type="text" id="risk-owner" placeholder="Owner" /></div>' +
+                '<div class="field"><textarea id="risk-mitigation" placeholder="Mitigation plan"></textarea></div>' +
+                '<button type="button" class="btn btn-primary" id="risk-save">Save risk</button>' +
+                '<button type="button" class="btn btn-secondary" id="risk-cancel">Cancel</button>' +
+              '</div>')
+            : '') +
         '</div>' +
       '</div>' +
       '<div class="detail-tab-panel' + (activeTabName === 'dependencies' ? ' is-active' : '') + '" data-tab-panel="dependencies"' + (activeTabName === 'dependencies' ? '' : ' hidden') + '>' +
@@ -223,12 +267,14 @@ Gantt.detail = (function() {
             '</div>' +
           '</div>' +
           '<div id="deps-list"></div>' +
-          '<div class="form-inline">' +
-            '<select id="dep-predecessor"' + disabledAttr + '></select>' +
-            '<select id="dep-type"' + disabledAttr + '><option value="FS">FS</option><option value="SS">SS</option><option value="FF">FF</option><option value="SF">SF</option></select>' +
-            '<button type="button" class="btn btn-secondary" id="dep-add"' + disabledAttr + '>Add dependency</button>' +
-          '</div>' +
-          '<p class="empty-msg" style="font-size:0.85rem">Add dependency: this task as successor; choose predecessor above.</p>' +
+          (isEditable
+            ? ('<div class="form-inline">' +
+                '<select id="dep-predecessor"></select>' +
+                '<select id="dep-type"><option value="FS">FS</option><option value="SS">SS</option><option value="FF">FF</option><option value="SF">SF</option></select>' +
+                '<button type="button" class="btn btn-secondary" id="dep-add">Add dependency</button>' +
+              '</div>' +
+              '<p class="empty-msg" style="font-size:0.85rem">Add dependency: this task as successor; choose predecessor above.</p>')
+            : '') +
         '</div>' +
       '</div>';
 
@@ -253,33 +299,36 @@ Gantt.detail = (function() {
     });
 
     // Save task
-    document.getElementById('detail-save').addEventListener('click', function() {
-      if (!workspace || !workspace.ensureEditAccess) return;
-      var isMilestone = document.getElementById('detail-is-milestone').checked;
-      var startDate = document.getElementById('detail-start').value || null;
-      var endDate = document.getElementById('detail-end').value || null;
-      if (isMilestone) {
-        if (startDate && !endDate) endDate = startDate;
-        if (!startDate && endDate) startDate = endDate;
-        if (startDate && endDate && startDate !== endDate) endDate = startDate;
-      }
-      var payload = {
-        name: document.getElementById('detail-name').value.trim(),
-        description: document.getElementById('detail-desc').value.trim(),
-        accountable_person: document.getElementById('detail-accountable').value.trim(),
-        responsible_party: document.getElementById('detail-responsible').value.trim(),
-        start_date: startDate,
-        end_date: endDate,
-        is_milestone: isMilestone,
-        status: document.getElementById('detail-status').value,
-        progress: parseInt(document.getElementById('detail-progress').value, 10) || 0
-      };
-      workspace.ensureEditAccess(function() {
-        Gantt.api.patchTask(selectedTaskUid, payload)
-          .then(function() { showToast('Task saved'); flashButtonSuccess('detail-save', 'Saved'); if (refreshAll) refreshAll(); })
-          .catch(function(e) { showToast(e.message, true); });
+    var detailSaveBtn = document.getElementById('detail-save');
+    if (detailSaveBtn) {
+      detailSaveBtn.addEventListener('click', function() {
+        if (!workspace || !workspace.ensureEditAccess) return;
+        var isMilestone = document.getElementById('detail-is-milestone').checked;
+        var startDate = document.getElementById('detail-start').value || null;
+        var endDate = document.getElementById('detail-end').value || null;
+        if (isMilestone) {
+          if (startDate && !endDate) endDate = startDate;
+          if (!startDate && endDate) startDate = endDate;
+          if (startDate && endDate && startDate !== endDate) endDate = startDate;
+        }
+        var payload = {
+          name: document.getElementById('detail-name').value.trim(),
+          description: document.getElementById('detail-desc').value.trim(),
+          accountable_person: document.getElementById('detail-accountable').value.trim(),
+          responsible_party: document.getElementById('detail-responsible').value.trim(),
+          start_date: startDate,
+          end_date: endDate,
+          is_milestone: isMilestone,
+          status: document.getElementById('detail-status').value,
+          progress: parseInt(document.getElementById('detail-progress').value, 10) || 0
+        };
+        workspace.ensureEditAccess(function() {
+          Gantt.api.patchTask(selectedTaskUid, payload)
+            .then(function() { showToast('Task saved'); flashButtonSuccess('detail-save', 'Saved'); if (refreshAll) refreshAll(); })
+            .catch(function(e) { showToast(e.message, true); });
+        });
       });
-    });
+    }
 
     function runSoftDelete(strategy) {
       if (!workspace || !workspace.ensureEditAccess) return;
@@ -352,17 +401,20 @@ Gantt.detail = (function() {
       });
     }
     loadRag();
-    document.getElementById('rag-add').addEventListener('click', function() {
-      var status = document.getElementById('rag-status').value;
-      var rationale = document.getElementById('rag-rationale').value.trim();
-      var pathToGreen = document.getElementById('rag-path-to-green').value.trim();
-      if ((status === 'amber' || status === 'red') && !rationale) { showToast('Rationale required for amber/red', true); return; }
-      workspace.ensureEditAccess(function() {
-        Gantt.api.postRag(selectedTaskUid, { status: status, rationale: rationale, path_to_green: pathToGreen })
-          .then(function() { showToast('RAG updated'); flashButtonSuccess('rag-add', 'Updated'); loadRag(); if (refreshAll) refreshAll(); })
-          .catch(function(e) { showToast(e.message, true); });
+    var ragAddBtn = document.getElementById('rag-add');
+    if (ragAddBtn) {
+      ragAddBtn.addEventListener('click', function() {
+        var status = document.getElementById('rag-status').value;
+        var rationale = document.getElementById('rag-rationale').value.trim();
+        var pathToGreen = document.getElementById('rag-path-to-green').value.trim();
+        if ((status === 'amber' || status === 'red') && !rationale) { showToast('Rationale required for amber/red', true); return; }
+        workspace.ensureEditAccess(function() {
+          Gantt.api.postRag(selectedTaskUid, { status: status, rationale: rationale, path_to_green: pathToGreen })
+            .then(function() { showToast('RAG updated'); flashButtonSuccess('rag-add', 'Updated'); loadRag(); if (refreshAll) refreshAll(); })
+            .catch(function(e) { showToast(e.message, true); });
+        });
       });
-    });
+    }
 
     // Comments
     function loadComments() {
@@ -380,20 +432,23 @@ Gantt.detail = (function() {
       });
     }
     loadComments();
-    document.getElementById('comment-add').addEventListener('click', function() {
-      var comment_text = document.getElementById('comment-text').value.trim();
-      if (!comment_text) { showToast('Enter comment text', true); return; }
-      workspace.ensureEditAccess(function(authorId) {
-        Gantt.api.postComment(selectedTaskUid, { author: authorId, comment_text: comment_text })
-          .then(function() {
-            document.getElementById('comment-text').value = '';
-            loadComments();
-            showToast('Comment added');
-            flashButtonSuccess('comment-add', 'Added');
-          })
-          .catch(function(e) { showToast(e.message, true); });
+    var commentAddBtn = document.getElementById('comment-add');
+    if (commentAddBtn) {
+      commentAddBtn.addEventListener('click', function() {
+        var comment_text = document.getElementById('comment-text').value.trim();
+        if (!comment_text) { showToast('Enter comment text', true); return; }
+        workspace.ensureEditAccess(function(authorId) {
+          Gantt.api.postComment(selectedTaskUid, { author: authorId, comment_text: comment_text })
+            .then(function() {
+              document.getElementById('comment-text').value = '';
+              loadComments();
+              showToast('Comment added');
+              flashButtonSuccess('comment-add', 'Added');
+            })
+            .catch(function(e) { showToast(e.message, true); });
+        });
       });
-    });
+    }
 
     // Risks
     var editingRiskUid = null;
@@ -418,7 +473,7 @@ Gantt.detail = (function() {
                   (r.mitigation_plan ? ('Mitigation: ' + escapeHtml(r.mitigation_plan)) : '') +
                 '</div>'
               : '') +
-            '<button type="button" class="btn btn-secondary btn-inline-action"' + disabledAttr + ' data-edit="' + escapeHtml(r.uid) + '">Edit</button>' +
+            (isEditable ? '<button type="button" class="btn btn-secondary btn-inline-action" data-edit="' + escapeHtml(r.uid) + '">Edit</button>' : '') +
           '</div>';
         }).join('');
         listEl.querySelectorAll('[data-edit]').forEach(function(b) {
@@ -440,21 +495,28 @@ Gantt.detail = (function() {
       });
     }
     loadRisks();
-    document.getElementById('risk-add-btn').addEventListener('click', function() {
-      editingRiskUid = null;
-      document.getElementById('risk-form').style.display = 'block';
-      document.getElementById('risk-title').value = '';
-      document.getElementById('risk-desc').value = '';
-      document.getElementById('risk-severity').value = 'medium';
-      document.getElementById('risk-status').value = 'open';
-      document.getElementById('risk-owner').value = '';
-      document.getElementById('risk-mitigation').value = '';
-    });
-    document.getElementById('risk-cancel').addEventListener('click', function() {
-      document.getElementById('risk-form').style.display = 'none';
-      editingRiskUid = null;
-    });
-    document.getElementById('risk-save').addEventListener('click', function() {
+    var riskAddBtn = document.getElementById('risk-add-btn');
+    if (riskAddBtn) {
+      riskAddBtn.addEventListener('click', function() {
+        editingRiskUid = null;
+        document.getElementById('risk-form').style.display = 'block';
+        document.getElementById('risk-title').value = '';
+        document.getElementById('risk-desc').value = '';
+        document.getElementById('risk-severity').value = 'medium';
+        document.getElementById('risk-status').value = 'open';
+        document.getElementById('risk-owner').value = '';
+        document.getElementById('risk-mitigation').value = '';
+      });
+    }
+    var riskCancelBtn = document.getElementById('risk-cancel');
+    if (riskCancelBtn) {
+      riskCancelBtn.addEventListener('click', function() {
+        document.getElementById('risk-form').style.display = 'none';
+        editingRiskUid = null;
+      });
+    }
+    var riskSaveBtn = document.getElementById('risk-save');
+    if (riskSaveBtn) riskSaveBtn.addEventListener('click', function() {
       var payload = {
         title: document.getElementById('risk-title').value.trim(),
         description: document.getElementById('risk-desc').value.trim(),
@@ -490,10 +552,13 @@ Gantt.detail = (function() {
 
     // Dependencies
     var predSelect = document.getElementById('dep-predecessor');
-    predSelect.innerHTML = '<option value="">Select predecessor</option>' + tasks.filter(function(t) { return t.uid !== selectedTaskUid; }).map(function(t) {
-      return '<option value="' + escapeHtml(t.uid) + '">' + escapeHtml(t.name) + '</option>';
-    }).join('');
-    document.getElementById('dep-add').addEventListener('click', function() {
+    if (predSelect) {
+      predSelect.innerHTML = '<option value="">Select predecessor</option>' + tasks.filter(function(t) { return t.uid !== selectedTaskUid; }).map(function(t) {
+        return '<option value="' + escapeHtml(t.uid) + '">' + escapeHtml(t.name) + '</option>';
+      }).join('');
+    }
+    var depAddBtn = document.getElementById('dep-add');
+    if (depAddBtn) depAddBtn.addEventListener('click', function() {
       var pred = predSelect.value;
       if (!pred) { showToast('Select a predecessor', true); return; }
       var depType = document.getElementById('dep-type').value;
@@ -517,7 +582,7 @@ Gantt.detail = (function() {
       return { ...d, label: 'this → ' + (taskNames[d.successor_task_uid] || d.successor_task_uid) + ' (' + d.dependency_type + ')' };
     }));
     depsList.innerHTML = depItems.length === 0 ? '<div class="empty-state-card">No dependencies yet. Add predecessor links to map sequencing and delivery impact.</div>' : depItems.map(function(d) {
-      return '<div class="list-item">' + escapeHtml(d.label) + ' <button type="button" class="btn btn-danger btn-dep-remove" style="margin-left:8px"' + disabledAttr + ' data-dep-uid="' + escapeHtml(d.uid) + '">Remove</button></div>';
+      return '<div class="list-item">' + escapeHtml(d.label) + (isEditable ? ' <button type="button" class="btn btn-danger btn-dep-remove" style="margin-left:8px" data-dep-uid="' + escapeHtml(d.uid) + '">Remove</button>' : '') + '</div>';
     }).join('');
     depsList.querySelectorAll('.btn-dep-remove').forEach(function(b) {
       b.addEventListener('click', function() {

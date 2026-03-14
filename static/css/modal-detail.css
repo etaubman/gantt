@@ -152,6 +152,18 @@
   line-height: 1.35;
   text-align: right;
 }
+.task-detail-modal .detail-readonly-note {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 0.85rem;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.045);
+  border: 1px solid rgba(255,255,255,0.06);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
 .task-detail-modal .detail-tabs {
   display: flex;
   gap: 0.5rem;
@@ -258,6 +270,20 @@
 .task-detail-modal .field input::placeholder,
 .task-detail-modal .field textarea::placeholder { color: var(--text-muted); }
 .task-detail-modal .field textarea { min-height: 72px; resize: vertical; }
+.task-detail-modal .field-readonly-value {
+  min-height: 44px;
+  padding: 0.72rem 0.84rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.05);
+  background: rgba(255,255,255,0.035);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+.task-detail-modal .field-readonly-rich .field-readonly-value {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 .task-detail-modal .form-row { display: flex; gap: 0.75rem; margin-bottom: 0.85rem; }
 .task-detail-modal .form-row .field { flex: 1; margin-bottom: 0; }
 .task-detail-modal .detail-toggle-row {

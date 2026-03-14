@@ -117,7 +117,11 @@ Gantt.workspace = (function() {
             ? 'Resume edit'
             : 'Switch to edit';
     }
-    if (el.btnImport) el.btnImport.disabled = !editMode || !lockedBySelf;
+    if (el.btnImport) {
+      var showImport = !!editMode && !!lockedBySelf;
+      el.btnImport.hidden = !showImport;
+      el.btnImport.disabled = !showImport;
+    }
   }
 
   function updateServerIndicatorUi() {
