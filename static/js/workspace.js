@@ -172,14 +172,19 @@ Gantt.workspace = (function() {
   }
 
   function setEditMode(enabled) {
+    var changed = state.isEditMode() !== !!enabled;
     state.setEditMode(enabled);
     updateModeUi();
-    rerenderDetailIfOpen();
+    if (changed) {
+      render();
+      rerenderDetailIfOpen();
+    }
   }
 
   function applyLockState(lock) {
     var currentEmployeeId = state.getEmployeeId();
     var previousLock = state.getEditLock();
+    var previousEditMode = state.isEditMode();
     state.setEditLock(lock);
     if (state.isEditMode() && (!lock.locked || lock.employee_id !== currentEmployeeId)) {
       state.setEditMode(false);
@@ -193,7 +198,14 @@ Gantt.workspace = (function() {
       hasShownLockLostToast = false;
     }
     updateModeUi();
-    rerenderDetailIfOpen();
+    var lockChanged =
+      previousLock.locked !== lock.locked ||
+      previousLock.employee_id !== lock.employee_id ||
+      previousEditMode !== state.isEditMode();
+    if (lockChanged) {
+      render();
+      rerenderDetailIfOpen();
+    }
   }
 
   function pollEditLock() {

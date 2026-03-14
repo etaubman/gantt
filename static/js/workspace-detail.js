@@ -6,6 +6,8 @@ Gantt.detail = (function() {
   var prettyDate = function(d) { return Gantt.utils.prettyDate(d); };
   var titleCaseStatus = function(status) { return Gantt.utils.titleCaseStatus(status); };
   var showToast = function(msg, err) { return Gantt.utils.showToast(msg, err); };
+  var activeTabName = 'task';
+  var lastRenderedTaskUid = null;
   var bindRagTooltip = function(anchor, options) {
     if (Gantt.ragTooltip && Gantt.ragTooltip.bind) {
       Gantt.ragTooltip.bind(anchor, options);
@@ -31,6 +33,8 @@ Gantt.detail = (function() {
       el.taskDetailModal.classList.remove('visible');
       el.taskDetailModal.setAttribute('aria-hidden', 'true');
     }
+    activeTabName = 'task';
+    lastRenderedTaskUid = null;
   }
 
   function renderDetail(refreshAll) {
@@ -53,6 +57,10 @@ Gantt.detail = (function() {
       closeTaskModal();
       return;
     }
+    if (lastRenderedTaskUid !== selectedTaskUid) {
+      activeTabName = 'task';
+      lastRenderedTaskUid = selectedTaskUid;
+    }
 
     if (el.taskDetailModalTitle) el.taskDetailModalTitle.textContent = task.name || 'Edit task';
     el.detailContent.innerHTML =
@@ -71,13 +79,13 @@ Gantt.detail = (function() {
         '</div>' +
       '</div>' +
       '<div class="detail-tabs" role="tablist" aria-label="Task detail sections">' +
-        '<button type="button" class="detail-tab is-active" data-tab-btn="task">Task</button>' +
-        '<button type="button" class="detail-tab" data-tab-btn="health">Health</button>' +
-        '<button type="button" class="detail-tab" data-tab-btn="comments">Comments</button>' +
-        '<button type="button" class="detail-tab" data-tab-btn="risks">Risks</button>' +
-        '<button type="button" class="detail-tab" data-tab-btn="dependencies">Dependencies</button>' +
+        '<button type="button" class="detail-tab' + (activeTabName === 'task' ? ' is-active' : '') + '" data-tab-btn="task">Task</button>' +
+        '<button type="button" class="detail-tab' + (activeTabName === 'health' ? ' is-active' : '') + '" data-tab-btn="health">Health</button>' +
+        '<button type="button" class="detail-tab' + (activeTabName === 'comments' ? ' is-active' : '') + '" data-tab-btn="comments">Comments</button>' +
+        '<button type="button" class="detail-tab' + (activeTabName === 'risks' ? ' is-active' : '') + '" data-tab-btn="risks">Risks</button>' +
+        '<button type="button" class="detail-tab' + (activeTabName === 'dependencies' ? ' is-active' : '') + '" data-tab-btn="dependencies">Dependencies</button>' +
       '</div>' +
-      '<div class="detail-tab-panel is-active" data-tab-panel="task">' +
+      '<div class="detail-tab-panel' + (activeTabName === 'task' ? ' is-active' : '') + '" data-tab-panel="task"' + (activeTabName === 'task' ? '' : ' hidden') + '>' +
         '<div class="section">' +
           '<div class="section-heading">' +
             '<div>' +
@@ -101,7 +109,7 @@ Gantt.detail = (function() {
           '</div>' +
         '</div>' +
       '</div>' +
-      '<div class="detail-tab-panel" data-tab-panel="health" hidden>' +
+      '<div class="detail-tab-panel' + (activeTabName === 'health' ? ' is-active' : '') + '" data-tab-panel="health"' + (activeTabName === 'health' ? '' : ' hidden') + '>' +
         '<div class="section section-health">' +
           '<div class="section-heading">' +
             '<div>' +
@@ -136,7 +144,7 @@ Gantt.detail = (function() {
           '<div id="rag-history"></div>' +
         '</div>' +
       '</div>' +
-      '<div class="detail-tab-panel" data-tab-panel="comments" hidden>' +
+      '<div class="detail-tab-panel' + (activeTabName === 'comments' ? ' is-active' : '') + '" data-tab-panel="comments"' + (activeTabName === 'comments' ? '' : ' hidden') + '>' +
         '<div class="section">' +
           '<div class="section-heading">' +
             '<div>' +
@@ -149,7 +157,7 @@ Gantt.detail = (function() {
           '<button type="button" class="btn btn-secondary" id="comment-add"' + disabledAttr + '>Add comment</button>' +
         '</div>' +
       '</div>' +
-      '<div class="detail-tab-panel" data-tab-panel="risks" hidden>' +
+      '<div class="detail-tab-panel' + (activeTabName === 'risks' ? ' is-active' : '') + '" data-tab-panel="risks"' + (activeTabName === 'risks' ? '' : ' hidden') + '>' +
         '<div class="section">' +
           '<div class="section-heading">' +
             '<div>' +
@@ -173,7 +181,7 @@ Gantt.detail = (function() {
           '</div>' +
         '</div>' +
       '</div>' +
-      '<div class="detail-tab-panel" data-tab-panel="dependencies" hidden>' +
+      '<div class="detail-tab-panel' + (activeTabName === 'dependencies' ? ' is-active' : '') + '" data-tab-panel="dependencies"' + (activeTabName === 'dependencies' ? '' : ' hidden') + '>' +
         '<div class="section">' +
           '<div class="section-heading">' +
             '<div>' +
@@ -192,6 +200,7 @@ Gantt.detail = (function() {
       '</div>';
 
     function activateTab(tabName) {
+      activeTabName = tabName;
       el.detailContent.querySelectorAll('[data-tab-btn]').forEach(function(btn) {
         var active = btn.getAttribute('data-tab-btn') === tabName;
         btn.classList.toggle('is-active', active);
