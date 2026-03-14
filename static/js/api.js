@@ -1,6 +1,8 @@
 window.Gantt = window.Gantt || {};
 
 Gantt.api = (function() {
+  var EMPLOYEE_ID_STORAGE_KEY = 'gantt-employee-id';
+
   function requestJson(url, options) {
     return fetch(url, options).then(function(r) {
       return r.text().then(function(text) {
@@ -14,6 +16,27 @@ Gantt.api = (function() {
         return data;
       });
     });
+  }
+
+  function getEmployeeId() {
+    return (window.localStorage.getItem(EMPLOYEE_ID_STORAGE_KEY) || '').trim();
+  }
+
+  function buildWriteHeaders(extraHeaders) {
+    var headers = extraHeaders ? Object.assign({}, extraHeaders) : {};
+    var employeeId = getEmployeeId();
+    if (employeeId) headers['X-Employee-Id'] = employeeId;
+    return headers;
+  }
+
+  function buildQuery(params) {
+    var search = new URLSearchParams();
+    Object.keys(params || {}).forEach(function(key) {
+      var value = params[key];
+      if (value !== undefined && value !== null && value !== '') search.set(key, value);
+    });
+    var query = search.toString();
+    return query ? ('?' + query) : '';
   }
 
   function getProject() {
@@ -41,67 +64,74 @@ Gantt.api = (function() {
   }
 
   function patchTask(taskUid, payload) {
-    return fetch('/api/tasks/' + taskUid, {
+    return requestJson('/api/tasks/' + taskUid, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: buildWriteHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(payload)
-    }).then(function(r) { return r.json(); });
+    });
   }
 
   function postRag(taskUid, payload) {
-    return fetch('/api/tasks/' + taskUid + '/rag', {
+    return requestJson('/api/tasks/' + taskUid + '/rag', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: buildWriteHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(payload)
-    }).then(function(r) { return r.json(); });
+    });
   }
 
   function postComment(taskUid, payload) {
-    return fetch('/api/tasks/' + taskUid + '/comments', {
+    return requestJson('/api/tasks/' + taskUid + '/comments', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: buildWriteHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(payload)
-    }).then(function(r) { return r.json(); });
+    });
   }
 
   function postRisk(taskUid, payload) {
-    return fetch('/api/tasks/' + taskUid + '/risks', {
+    return requestJson('/api/tasks/' + taskUid + '/risks', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: buildWriteHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(payload)
-    }).then(function(r) { return r.json(); });
+    });
   }
 
   function patchRisk(riskUid, payload) {
-    return fetch('/api/risks/' + riskUid, {
+    return requestJson('/api/risks/' + riskUid, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: buildWriteHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(payload)
-    }).then(function(r) { return r.json(); });
+    });
   }
 
   function postTask(payload) {
-    return fetch('/api/tasks', {
+    return requestJson('/api/tasks', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: buildWriteHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(payload)
-    }).then(function(r) { return r.json(); });
+    });
   }
 
   function postDependency(payload) {
-    return fetch('/api/dependencies', {
+    return requestJson('/api/dependencies', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: buildWriteHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(payload)
-    }).then(function(r) { return r.json(); });
+    });
   }
 
   function deleteDependency(depUid) {
-    return fetch('/api/dependencies/' + depUid, { method: 'DELETE' });
+    return requestJson('/api/dependencies/' + depUid, {
+      method: 'DELETE',
+      headers: buildWriteHeaders()
+    });
   }
 
   function importFile(formData) {
-    return fetch('/api/import', { method: 'POST', body: formData }).then(function(r) { return r.json(); });
+    return requestJson('/api/import', {
+      method: 'POST',
+      headers: buildWriteHeaders(),
+      body: formData
+    });
   }
 
   function exportUrl() {
@@ -112,10 +142,14 @@ Gantt.api = (function() {
     return requestJson('/api/edit-lock');
   }
 
+  function getAuditEvents(filters) {
+    return requestJson('/api/audit-events' + buildQuery(filters || {}));
+  }
+
   function acquireEditLock(payload) {
     return requestJson('/api/edit-lock/acquire', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: buildWriteHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(payload)
     });
   }
@@ -123,7 +157,7 @@ Gantt.api = (function() {
   function releaseEditLock(payload) {
     return requestJson('/api/edit-lock/release', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: buildWriteHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(payload)
     });
   }
@@ -146,6 +180,7 @@ Gantt.api = (function() {
     importFile: importFile,
     exportUrl: exportUrl,
     getEditLock: getEditLock,
+    getAuditEvents: getAuditEvents,
     acquireEditLock: acquireEditLock,
     releaseEditLock: releaseEditLock
   };

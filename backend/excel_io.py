@@ -8,7 +8,7 @@ from datetime import datetime
 import openpyxl
 from openpyxl import Workbook
 
-from backend.database import get_conn, DB_PATH
+from database import get_conn, DB_PATH
 
 SCHEMA_VERSION = "1"
 APP_VERSION = "1.0.0"

@@ -4,7 +4,7 @@ import os
 import uuid
 from datetime import datetime, timedelta
 
-from backend.database import get_conn
+from database import get_conn
 
 DEFAULT_PROJECT_UID = "markets-data-governance"
 DEFAULT_PROJECT_NAME = "Markets Data Governance"

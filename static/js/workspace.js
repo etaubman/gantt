@@ -6,6 +6,7 @@ Gantt.workspace = (function() {
   var table = Gantt.table;
   var gantt = Gantt.gantt;
   var detail = Gantt.detail;
+  var auditLog = Gantt.auditLog;
   var escapeHtml = Gantt.utils.escapeHtml;
   var showToast = Gantt.utils.showToast;
   var prettyDate = Gantt.utils.prettyDate;
@@ -221,7 +222,7 @@ Gantt.workspace = (function() {
   function startLockPolling() {
     if (lockPollTimer) return;
     pollEditLock();
-    lockPollTimer = window.setInterval(pollEditLock, 1000);
+    lockPollTimer = window.setInterval(pollEditLock, 2500);
   }
 
   function ensureEditAccess(onReady) {
@@ -627,6 +628,12 @@ Gantt.workspace = (function() {
     }
     if (el.workspaceModeToggle) {
       el.workspaceModeToggle.addEventListener('click', toggleMode);
+    }
+    var btnAuditLog = document.getElementById('btn-audit-log');
+    if (btnAuditLog && auditLog && auditLog.open) {
+      btnAuditLog.addEventListener('click', function() {
+        auditLog.open();
+      });
     }
 
     el.btnExport.addEventListener('click', function() {

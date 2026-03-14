@@ -32,6 +32,22 @@
   box-shadow: 0 32px 90px rgba(0, 0, 0, 0.46), inset 0 1px 0 rgba(255,255,255,0.04);
   animation: detail-modal-in 0.26s cubic-bezier(0.22, 1, 0.36, 1);
 }
+
+.audit-log-modal {
+  padding: 0.35rem;
+}
+
+.audit-log-modal .task-detail-modal-dialog.audit-log-dialog {
+  width: calc(100vw - 12px);
+  max-width: calc(100vw - 12px);
+  height: calc(100vh - 0.7rem);
+  min-height: calc(100vh - 0.7rem);
+  max-height: calc(100vh - 0.7rem);
+}
+
+.audit-log-modal .task-detail-modal-body.audit-log-body {
+  overflow: hidden;
+}
 .task-detail-modal-dialog::before {
   content: "";
   position: absolute;

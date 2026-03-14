@@ -80,12 +80,30 @@ def init_db():
                 updated_at TEXT NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS audit_events (
+                uid TEXT PRIMARY KEY,
+                actor_employee_id TEXT NOT NULL,
+                action_type TEXT NOT NULL,
+                entity_type TEXT NOT NULL,
+                entity_uid TEXT,
+                task_uid TEXT,
+                task_name TEXT,
+                prior_value TEXT,
+                new_value TEXT,
+                metadata TEXT,
+                created_at TEXT NOT NULL
+            );
+
             CREATE INDEX IF NOT EXISTS idx_tasks_project ON tasks(project_uid);
             CREATE INDEX IF NOT EXISTS idx_tasks_parent ON tasks(parent_task_uid);
             CREATE INDEX IF NOT EXISTS idx_dependencies_project ON dependencies(project_uid);
             CREATE INDEX IF NOT EXISTS idx_rag_task ON rag_statuses(task_uid);
             CREATE INDEX IF NOT EXISTS idx_comments_task ON comments(task_uid);
             CREATE INDEX IF NOT EXISTS idx_risks_task ON risks(task_uid);
+            CREATE INDEX IF NOT EXISTS idx_audit_created_at ON audit_events(created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_audit_actor ON audit_events(actor_employee_id);
+            CREATE INDEX IF NOT EXISTS idx_audit_action_type ON audit_events(action_type);
+            CREATE INDEX IF NOT EXISTS idx_audit_task_uid ON audit_events(task_uid);
         """)
         rag_columns = {row["name"] for row in conn.execute("PRAGMA table_info(rag_statuses)").fetchall()}
         if "path_to_green" not in rag_columns:
