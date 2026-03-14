@@ -672,11 +672,18 @@ Gantt.workspace = (function() {
         auditLog.open();
       });
     }
+    var btnExportReport = document.getElementById('btn-export-report');
 
     el.btnExport.addEventListener('click', function() {
       window.location.href = api.exportUrl();
       showToast('Export started');
     });
+    if (btnExportReport) {
+      btnExportReport.addEventListener('click', function() {
+        window.location.href = api.exportReportUrl();
+        showToast('Report export started');
+      });
+    }
 
     el.btnImport.addEventListener('click', function() {
       if (el.fileImport) el.fileImport.click();

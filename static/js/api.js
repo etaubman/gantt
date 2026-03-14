@@ -164,6 +164,10 @@ Gantt.api = (function() {
     return '/api/export';
   }
 
+  function exportReportUrl() {
+    return '/api/export-report';
+  }
+
   function getEditLock() {
     return requestJson('/api/edit-lock');
   }
@@ -210,6 +214,7 @@ Gantt.api = (function() {
     deleteDependency: deleteDependency,
     importFile: importFile,
     exportUrl: exportUrl,
+    exportReportUrl: exportReportUrl,
     getEditLock: getEditLock,
     getAuditEvents: getAuditEvents,
     acquireEditLock: acquireEditLock,

@@ -4,10 +4,12 @@ import json
 import os
 import tempfile
 import uuid
+from collections import defaultdict
 from datetime import datetime
 
 import openpyxl
 from openpyxl import Workbook
+from openpyxl.styles import Alignment, Font, PatternFill
 
 from backend.database import get_conn, DB_PATH
 
@@ -23,6 +25,65 @@ def _as_bool(value) -> bool:
     if isinstance(value, (int, float)):
         return value != 0
     return str(value).strip().lower() in ("1", "true", "yes", "y")
+
+
+def _build_task_tree(tasks: list[dict]) -> list[dict]:
+    by_parent: dict[str | None, list[dict]] = defaultdict(list)
+    for task in tasks:
+        by_parent[task.get("parent_task_uid")].append(task)
+    for children in by_parent.values():
+        children.sort(key=lambda item: (item.get("sort_order", 0), item.get("created_at") or ""))
+    ordered: list[dict] = []
+
+    def walk(parent_uid: str | None, depth: int, prefix: str) -> None:
+        children = by_parent.get(parent_uid, [])
+        for index, task in enumerate(children, start=1):
+            hierarchy_number = f"{prefix}.{index}" if prefix else str(index)
+            task_copy = dict(task)
+            task_copy["depth"] = depth
+            task_copy["hierarchy_number"] = hierarchy_number
+            ordered.append(task_copy)
+            walk(task["uid"], depth + 1, hierarchy_number)
+
+    walk(None, 0, "")
+    return ordered
+
+
+def _apply_sheet_chrome(ws, widths: dict[str, int] | None = None, freeze_cell: str = "A2") -> None:
+    header_fill = PatternFill(fill_type="solid", fgColor="1F3552")
+    for cell in ws[1]:
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+    ws.freeze_panes = freeze_cell
+    ws.auto_filter.ref = ws.dimensions
+    ws.sheet_view.showGridLines = True
+    if widths:
+        for column_letter, width in widths.items():
+            ws.column_dimensions[column_letter].width = width
+
+
+def _wrap_columns(ws, column_letters: list[str], start_row: int = 2) -> None:
+    for column_letter in column_letters:
+        for row in range(start_row, ws.max_row + 1):
+            ws[f"{column_letter}{row}"].alignment = Alignment(vertical="top", wrap_text=True)
+
+
+def _status_fill(status: str | None) -> PatternFill | None:
+    tones = {
+        "complete": "D8F3DC",
+        "in_progress": "DBEAFE",
+        "not_started": "E5E7EB",
+        "blocked": "FEE2E2",
+        "cancelled": "F3E8FF",
+        "open": "FEE2E2",
+        "mitigated": "FEF3C7",
+        "closed": "D8F3DC",
+    }
+    color = tones.get((status or "").strip().lower())
+    if not color:
+        return None
+    return PatternFill(fill_type="solid", fgColor=color)
 
 
 def export_project_to_xlsx(project_uid: str) -> str | None:
@@ -122,6 +183,222 @@ def export_project_to_xlsx(project_uid: str) -> str | None:
     dir_path = os.path.dirname(DB_PATH) or tempfile.gettempdir()
     os.makedirs(dir_path, exist_ok=True)
     path = os.path.join(dir_path, f"export_{project_uid[:8]}_{exported_at_safe}.xlsx")
+    wb.save(path)
+    return path
+
+
+def export_project_report_to_xlsx(project_uid: str) -> str | None:
+    """Export one project to a human-readable offline report workbook."""
+    exported_at = datetime.utcnow().isoformat() + "Z"
+    exported_at_safe = exported_at.replace(":", "-")
+    with get_conn() as conn:
+        proj = conn.execute("SELECT uid, name, created_at FROM projects WHERE uid = ?", (project_uid,)).fetchone()
+        if not proj:
+            return None
+        project = dict(proj)
+        tasks = [dict(r) for r in conn.execute(
+            """SELECT uid, project_uid, parent_task_uid, name, description, accountable_person, responsible_party,
+                      start_date, end_date, is_milestone, status, progress, sort_order, is_deleted, deleted_at, deleted_by,
+                      created_at, updated_at
+               FROM tasks WHERE project_uid = ?
+               ORDER BY sort_order ASC, created_at ASC""",
+            (project_uid,),
+        ).fetchall()]
+        deps = [dict(r) for r in conn.execute(
+            "SELECT uid, predecessor_task_uid, successor_task_uid, dependency_type, created_at FROM dependencies WHERE project_uid = ? ORDER BY created_at ASC",
+            (project_uid,),
+        ).fetchall()]
+        comments = [dict(r) for r in conn.execute(
+            """SELECT uid, task_uid, author, comment_text, created_at
+               FROM comments
+               WHERE task_uid IN (SELECT uid FROM tasks WHERE project_uid = ?)
+               ORDER BY created_at ASC""",
+            (project_uid,),
+        ).fetchall()]
+        risks = [dict(r) for r in conn.execute(
+            """SELECT uid, task_uid, title, description, severity, status, owner, mitigation_plan, created_at, updated_at
+               FROM risks
+               WHERE task_uid IN (SELECT uid FROM tasks WHERE project_uid = ?)
+               ORDER BY created_at ASC""",
+            (project_uid,),
+        ).fetchall()]
+        rag_rows = [dict(r) for r in conn.execute(
+            """SELECT uid, task_uid, status, rationale, path_to_green, created_at
+               FROM rag_statuses
+               WHERE task_uid IN (SELECT uid FROM tasks WHERE project_uid = ?)
+               ORDER BY created_at ASC""",
+            (project_uid,),
+        ).fetchall()]
+
+    task_tree = _build_task_tree(tasks)
+    task_by_uid = {task["uid"]: task for task in tasks}
+    latest_comment_by_task: dict[str, dict] = {}
+    for comment in comments:
+        latest_comment_by_task[comment["task_uid"]] = comment
+    latest_rag_by_task: dict[str, dict] = {}
+    for rag in rag_rows:
+        latest_rag_by_task[rag["task_uid"]] = rag
+    open_risks_by_task: dict[str, list[dict]] = defaultdict(list)
+    for risk in risks:
+        if (risk.get("status") or "").lower() != "closed":
+            open_risks_by_task[risk["task_uid"]].append(risk)
+    predecessor_names_by_task: dict[str, list[str]] = defaultdict(list)
+    successor_names_by_task: dict[str, list[str]] = defaultdict(list)
+    for dep in deps:
+        predecessor = task_by_uid.get(dep["predecessor_task_uid"])
+        successor = task_by_uid.get(dep["successor_task_uid"])
+        if predecessor and successor:
+            predecessor_names_by_task[successor["uid"]].append(predecessor["name"])
+            successor_names_by_task[predecessor["uid"]].append(successor["name"])
+
+    wb = Workbook()
+
+    ws_overview = wb.active
+    ws_overview.title = "Overview"
+    ws_overview.append(["Project", project["name"]])
+    ws_overview.append(["Project UID", project["uid"]])
+    ws_overview.append(["Created At", project["created_at"]])
+    ws_overview.append(["Exported At", exported_at])
+    ws_overview.append(["Visible Tasks", sum(1 for task in tasks if not _as_bool(task.get("is_deleted")))])
+    ws_overview.append(["Open Risks", sum(len(items) for items in open_risks_by_task.values())])
+    ws_overview.append(["Latest Comments", len(latest_comment_by_task)])
+    for cell in ws_overview["A"]:
+        cell.font = Font(bold=True)
+    ws_overview.column_dimensions["A"].width = 20
+    ws_overview.column_dimensions["B"].width = 90
+    _wrap_columns(ws_overview, ["B"], start_row=1)
+
+    ws_tasks = wb.create_sheet("Task Report")
+    ws_tasks.append([
+        "Hierarchy",
+        "Task",
+        "Task UID",
+        "Parent Task UID",
+        "Status",
+        "Progress %",
+        "RAG",
+        "Milestone",
+        "Start",
+        "End",
+        "Accountable",
+        "Responsible",
+        "Latest Comment",
+        "Latest Comment Author",
+        "Latest Comment At",
+        "Open Risks",
+        "Predecessors",
+        "Successors",
+        "Description",
+    ])
+    for task in task_tree:
+        latest_comment = latest_comment_by_task.get(task["uid"])
+        latest_rag = latest_rag_by_task.get(task["uid"])
+        open_risks = open_risks_by_task.get(task["uid"], [])
+        risk_summary = "\n".join(
+            f"{risk['title']} ({risk['severity']}, {risk['status']})"
+            for risk in open_risks
+        )
+        ws_tasks.append([
+            task.get("hierarchy_number") or "",
+            task["name"],
+            task["uid"],
+            task.get("parent_task_uid") or "",
+            task.get("status") or "",
+            task.get("progress") if task.get("progress") is not None else 0,
+            (latest_rag or {}).get("status") or "",
+            "Yes" if _as_bool(task.get("is_milestone")) else "",
+            task.get("start_date") or "",
+            task.get("end_date") or "",
+            task.get("accountable_person") or "",
+            task.get("responsible_party") or "",
+            (latest_comment or {}).get("comment_text") or "",
+            (latest_comment or {}).get("author") or "",
+            (latest_comment or {}).get("created_at") or "",
+            risk_summary,
+            "\n".join(predecessor_names_by_task.get(task["uid"], [])),
+            "\n".join(successor_names_by_task.get(task["uid"], [])),
+            task.get("description") or "",
+        ])
+    _apply_sheet_chrome(
+        ws_tasks,
+        {
+            "A": 12, "B": 32, "C": 38, "D": 38, "E": 14, "F": 12, "G": 12, "H": 10,
+            "I": 12, "J": 12, "K": 18, "L": 18, "M": 48, "N": 18, "O": 20, "P": 42,
+            "Q": 28, "R": 28, "S": 52,
+        },
+    )
+    _wrap_columns(ws_tasks, ["M", "P", "Q", "R", "S"])
+    for row_idx in range(2, ws_tasks.max_row + 1):
+        depth = 0
+        hierarchy = ws_tasks[f"A{row_idx}"].value or ""
+        if hierarchy:
+            depth = str(hierarchy).count(".")
+        task_cell = ws_tasks[f"B{row_idx}"]
+        task_cell.alignment = Alignment(vertical="top", wrap_text=True, indent=min(depth, 8))
+        status_fill = _status_fill(ws_tasks[f"E{row_idx}"].value)
+        if status_fill:
+            ws_tasks[f"E{row_idx}"].fill = status_fill
+
+    ws_risks = wb.create_sheet("Open Risks")
+    ws_risks.append([
+        "Task",
+        "Task UID",
+        "Risk",
+        "Severity",
+        "Status",
+        "Owner",
+        "Mitigation Plan",
+        "Description",
+        "Created At",
+        "Updated At",
+    ])
+    for task in task_tree:
+        for risk in open_risks_by_task.get(task["uid"], []):
+            ws_risks.append([
+                task["name"],
+                task["uid"],
+                risk.get("title") or "",
+                risk.get("severity") or "",
+                risk.get("status") or "",
+                risk.get("owner") or "",
+                risk.get("mitigation_plan") or "",
+                risk.get("description") or "",
+                risk.get("created_at") or "",
+                risk.get("updated_at") or "",
+            ])
+    if ws_risks.max_row == 1:
+        ws_risks.append(["No open risks", "", "", "", "", "", "", "", "", ""])
+    _apply_sheet_chrome(
+        ws_risks,
+        {"A": 28, "B": 38, "C": 30, "D": 12, "E": 12, "F": 18, "G": 42, "H": 42, "I": 20, "J": 20},
+    )
+    _wrap_columns(ws_risks, ["G", "H"])
+    for row_idx in range(2, ws_risks.max_row + 1):
+        status_fill = _status_fill(ws_risks[f"E{row_idx}"].value)
+        if status_fill:
+            ws_risks[f"E{row_idx}"].fill = status_fill
+
+    ws_comments = wb.create_sheet("Latest Comments")
+    ws_comments.append(["Task", "Task UID", "Author", "Comment", "Comment At"])
+    for task in task_tree:
+        latest_comment = latest_comment_by_task.get(task["uid"])
+        if not latest_comment:
+            continue
+        ws_comments.append([
+            task["name"],
+            task["uid"],
+            latest_comment.get("author") or "",
+            latest_comment.get("comment_text") or "",
+            latest_comment.get("created_at") or "",
+        ])
+    if ws_comments.max_row == 1:
+        ws_comments.append(["No comments yet", "", "", "", ""])
+    _apply_sheet_chrome(ws_comments, {"A": 28, "B": 38, "C": 18, "D": 70, "E": 20})
+    _wrap_columns(ws_comments, ["D"])
+
+    dir_path = os.path.dirname(DB_PATH) or tempfile.gettempdir()
+    os.makedirs(dir_path, exist_ok=True)
+    path = os.path.join(dir_path, f"report_{project_uid[:8]}_{exported_at_safe}.xlsx")
     wb.save(path)
     return path
 

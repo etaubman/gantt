@@ -982,10 +982,24 @@ def export_project(project_uid: str):
     return FileResponse(path, filename=os.path.basename(path), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 
+def export_project_report(project_uid: str):
+    from backend.excel_io import export_project_report_to_xlsx
+    path = export_project_report_to_xlsx(project_uid)
+    if not path:
+        raise HTTPException(404, "Project not found")
+    return FileResponse(path, filename=os.path.basename(path), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+
 @app.get("/api/export")
 def export_single():
     """Export the single (default) project."""
     return export_project(DEFAULT_PROJECT_UID)
+
+
+@app.get("/api/export-report")
+def export_report_single():
+    """Export the single project as a human-readable report workbook."""
+    return export_project_report(DEFAULT_PROJECT_UID)
 
 
 @app.post("/api/import")
