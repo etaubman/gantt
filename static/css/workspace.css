@@ -314,6 +314,18 @@
   font-size: 0.8rem;
 }
 
+.task-focus-btn {
+  min-height: 32px;
+  padding: 0 0.8rem;
+  font-size: 0.8rem;
+}
+
+.task-focus-btn.is-active {
+  background: rgba(97, 168, 255, 0.12);
+  border-color: rgba(97, 168, 255, 0.24);
+  color: #d8ebff;
+}
+
 .task-filter-summary {
   display: inline-flex;
   align-items: center;

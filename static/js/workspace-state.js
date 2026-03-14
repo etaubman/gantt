@@ -17,6 +17,7 @@ Gantt.state = (function() {
   let selectedResponsible = 'all';
   let selectedRag = 'all';
   let selectedStatus = 'all';
+  let focusedTaskUid = null;
 
   const ZOOM_PX_PER_DAY = { years: 1, quarters: 2, months: 4, weeks: 8, days: 16 };
   const DEFAULT_ZOOM = 'months';
@@ -55,6 +56,7 @@ Gantt.state = (function() {
     responsibleFilterSelect: document.getElementById('responsible-filter-select'),
     ragFilterSelect: document.getElementById('rag-filter-select'),
     statusFilterSelect: document.getElementById('status-filter-select'),
+    btnFocusTask: document.getElementById('btn-focus-task'),
     taskFilterSummary: document.getElementById('task-filter-summary'),
     btnClearFilters: document.getElementById('btn-clear-filters'),
     workspaceServerIndicator: document.getElementById('workspace-server-indicator'),
@@ -155,6 +157,7 @@ Gantt.state = (function() {
     getSelectedResponsible: function() { return selectedResponsible; },
     getSelectedRag: function() { return selectedRag; },
     getSelectedStatus: function() { return selectedStatus; },
+    getFocusedTaskUid: function() { return focusedTaskUid; },
     isEditMode: function() { return editMode; },
     getEmployeeId: function() { return employeeId; },
     getEditLock: function() { return editLock; },
@@ -176,6 +179,7 @@ Gantt.state = (function() {
     setSelectedResponsible: function(value) { selectedResponsible = value || 'all'; },
     setSelectedRag: function(value) { selectedRag = value || 'all'; },
     setSelectedStatus: function(value) { selectedStatus = value || 'all'; },
+    setFocusedTaskUid: function(uid) { focusedTaskUid = uid || null; },
     setEditLock: function(lock) {
       editLock = lock || { locked: false, employee_id: null, locked_at: null, updated_at: null };
     },

@@ -392,6 +392,38 @@ Gantt.workspace = (function() {
     return scopedTree.filter(function(task) { return included[task.uid]; });
   }
 
+  function getFocusTree(tree) {
+    var focusedTaskUid = state.getFocusedTaskUid();
+    if (!focusedTaskUid) {
+      return { tree: tree, focusTask: null };
+    }
+    var focusIndex = -1;
+    var byUid = {};
+    tree.forEach(function(task, index) {
+      byUid[task.uid] = task;
+      if (task.uid === focusedTaskUid) focusIndex = index;
+    });
+    if (focusIndex === -1) {
+      return { tree: tree, focusTask: null };
+    }
+    var focusTask = tree[focusIndex];
+    var included = {};
+    var current = focusTask;
+    while (current) {
+      included[current.uid] = true;
+      current = current.parent_task_uid ? byUid[current.parent_task_uid] : null;
+    }
+    for (var i = focusIndex + 1; i < tree.length; i++) {
+      var candidate = tree[i];
+      if (candidate.depth <= focusTask.depth) break;
+      included[candidate.uid] = true;
+    }
+    return {
+      tree: tree.filter(function(task) { return !!included[task.uid]; }),
+      focusTask: focusTask
+    };
+  }
+
   function updateDomainOptions(tree) {
     var el = state.getEl();
     if (!el.domainFilterSelect) return;
@@ -450,7 +482,7 @@ Gantt.workspace = (function() {
     state.setSelectedStatus(el.statusFilterSelect ? el.statusFilterSelect.value : 'all');
   }
 
-  function updateTaskFilterUi() {
+  function updateTaskFilterUi(focusTask) {
     var el = state.getEl();
     var count = 0;
     var filters = [
@@ -476,16 +508,39 @@ Gantt.workspace = (function() {
       el.btnClearFilters.textContent = count === 0 ? 'Clear filters' : ('Clear ' + count + ' filter' + (count === 1 ? '' : 's'));
     }
     if (el.taskFilterSummary) {
-      el.taskFilterSummary.textContent = count === 0 ? 'All filters off' : ('Filtered by ' + activeLabels.join(', '));
-      el.taskFilterSummary.classList.toggle('is-active', count > 0);
+      var summaryParts = [];
+      if (count > 0) summaryParts.push('Filtered by ' + activeLabels.join(', '));
+      if (focusTask) summaryParts.push('Focused on ' + focusTask.name);
+      el.taskFilterSummary.textContent = summaryParts.length ? summaryParts.join(' • ') : 'All filters off';
+      el.taskFilterSummary.classList.toggle('is-active', count > 0 || !!focusTask);
     }
     if (el.taskTableWrap) {
-      el.taskTableWrap.classList.toggle('has-active-filters', count > 0 || state.getSelectedDomainUid() !== 'all');
+      el.taskTableWrap.classList.toggle('has-active-filters', count > 0 || state.getSelectedDomainUid() !== 'all' || !!focusTask);
     }
     var toolbar = document.querySelector('.task-panel-toolbar');
     if (toolbar) {
-      toolbar.classList.toggle('has-active-filters', count > 0 || state.getSelectedDomainUid() !== 'all');
+      toolbar.classList.toggle('has-active-filters', count > 0 || state.getSelectedDomainUid() !== 'all' || !!focusTask);
     }
+  }
+
+  function updateFocusButton(selectedTaskUid, focusTask) {
+    var el = state.getEl();
+    if (!el.btnFocusTask) return;
+    var tasks = state.getTasks();
+    var selectedTask = tasks.find(function(task) { return task.uid === selectedTaskUid; }) || null;
+    if (focusTask) {
+      el.btnFocusTask.disabled = false;
+      el.btnFocusTask.textContent = 'Exit focus';
+      el.btnFocusTask.title = 'Show the full task tree again';
+      el.btnFocusTask.classList.add('is-active');
+      return;
+    }
+    el.btnFocusTask.disabled = !selectedTask;
+    el.btnFocusTask.textContent = 'Focus selected';
+    el.btnFocusTask.title = selectedTask
+      ? ('Show only ' + selectedTask.name + ', its ancestors, and children')
+      : 'Select a task to focus it';
+    el.btnFocusTask.classList.remove('is-active');
   }
 
   function clearTaskFilters() {
@@ -499,6 +554,23 @@ Gantt.workspace = (function() {
     if (el.ragFilterSelect) el.ragFilterSelect.value = 'all';
     if (el.statusFilterSelect) el.statusFilterSelect.value = 'all';
     render();
+  }
+
+  function toggleFocusMode() {
+    var focusedTaskUid = state.getFocusedTaskUid();
+    if (focusedTaskUid) {
+      state.setFocusedTaskUid(null);
+      render();
+      return;
+    }
+    var selectedTaskUid = state.getSelectedTaskUid();
+    if (!selectedTaskUid) {
+      showToast('Select a task to focus it', true);
+      return;
+    }
+    state.setFocusedTaskUid(selectedTaskUid);
+    render();
+    requestAnimationFrame(centerSelectedTaskRow);
   }
 
   function openTaskDetail(uid) {
@@ -582,10 +654,15 @@ Gantt.workspace = (function() {
     var tree = state.buildTaskTree(tasks);
     updateDomainOptions(tree);
     updateTaskFilterOptions(tasks, taskRag);
-    updateTaskFilterUi();
     var filteredTree = getFilteredTree(tree);
-    var visibleTree = state.getVisibleTree(filteredTree);
-    var hasChildren = state.getHasChildren(tree);
+    var focusState = getFocusTree(filteredTree);
+    if (state.getFocusedTaskUid() && !focusState.focusTask) {
+      state.setFocusedTaskUid(null);
+      focusState = { tree: filteredTree, focusTask: null };
+    }
+    var focusTree = focusState.tree;
+    var visibleTree = focusState.focusTask ? focusTree : state.getVisibleTree(focusTree);
+    var hasChildren = state.getHasChildren(focusTree);
     var el = state.getEl();
     var selectedTaskUid = state.getSelectedTaskUid();
 
@@ -599,14 +676,19 @@ Gantt.workspace = (function() {
       setSelectedTask(selectedTaskUid);
     }
 
+    updateTaskFilterUi(focusState.focusTask);
+    updateFocusButton(selectedTaskUid, focusState.focusTask);
     updateWorkspaceMeta(visibleTree, selectedTaskUid);
     updateModeUi();
 
-    table.render(visibleTree, taskRag, selectedTaskUid, hasChildren, state.isExpanded.bind(state), function(uid) {
+    table.render(visibleTree, taskRag, selectedTaskUid, hasChildren, function(uid) {
+      return focusState.focusTask ? true : state.isExpanded(uid);
+    }, function(uid) {
       setSelectedTask(uid);
       render();
       requestAnimationFrame(centerSelectedTaskRow);
     }, function(uid) {
+      if (focusState.focusTask) return;
       state.toggleCollapsed(uid);
       render();
     }, function(uid) {
@@ -692,6 +774,9 @@ Gantt.workspace = (function() {
     }
     if (el.btnClearFilters) {
       el.btnClearFilters.addEventListener('click', clearTaskFilters);
+    }
+    if (el.btnFocusTask) {
+      el.btnFocusTask.addEventListener('click', toggleFocusMode);
     }
     if (el.workspaceModeToggle) {
       el.workspaceModeToggle.addEventListener('click', toggleMode);
