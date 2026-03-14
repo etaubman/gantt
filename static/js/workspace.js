@@ -17,6 +17,8 @@ Gantt.workspace = (function() {
   var hasCenteredInitialView = false;
   var lockPollTimer = null;
   var hasShownLockLostToast = false;
+  var hasShownLockPollErrorToast = false;
+  var serverConnectionState = 'unknown';
   function syncVerticalScroll() {
     var el = state.getEl();
     if (!el.taskTableWrap || !el.ganttBody || !el.ganttBodyViewport) return;
@@ -118,6 +120,34 @@ Gantt.workspace = (function() {
     if (el.btnImport) el.btnImport.disabled = !editMode || !lockedBySelf;
   }
 
+  function updateServerIndicatorUi() {
+    var el = state.getEl();
+    if (!el.workspaceServerIndicator) return;
+    el.workspaceServerIndicator.textContent =
+      serverConnectionState === 'online'
+        ? 'Online'
+        : serverConnectionState === 'offline'
+          ? 'Offline'
+          : 'Checking server...';
+    el.workspaceServerIndicator.classList.toggle('is-online', serverConnectionState === 'online');
+    el.workspaceServerIndicator.classList.toggle('is-offline', serverConnectionState === 'offline');
+    el.workspaceServerIndicator.classList.toggle('is-unknown', serverConnectionState === 'unknown');
+  }
+
+  function setServerConnectionState(nextState) {
+    var previousState = serverConnectionState;
+    if (previousState === nextState) return;
+    serverConnectionState = nextState;
+    updateServerIndicatorUi();
+    if (nextState === 'offline') {
+      showToast('Server connection lost', true);
+      return;
+    }
+    if (nextState === 'online' && previousState === 'offline') {
+      showToast('Server connection restored');
+    }
+  }
+
   function normalizeEmployeeId(value) {
     var trimmed = (value || '').trim();
     if (!EMPLOYEE_ID_RE.test(trimmed)) return '';
@@ -212,17 +242,21 @@ Gantt.workspace = (function() {
   function pollEditLock() {
     return api.getEditLock()
       .then(function(lock) {
+        hasShownLockPollErrorToast = false;
         applyLockState(lock);
       })
       .catch(function(e) {
-        showToast(e.message || 'Unable to check edit lock', true);
+        if (e && e.status && !e.isConnectionError && !hasShownLockPollErrorToast) {
+          showToast(e.message || 'Unable to check edit lock', true);
+          hasShownLockPollErrorToast = true;
+        }
       });
   }
 
   function startLockPolling() {
     if (lockPollTimer) return;
     pollEditLock();
-    lockPollTimer = window.setInterval(pollEditLock, 2500);
+    lockPollTimer = window.setInterval(pollEditLock, 5000);
   }
 
   function ensureEditAccess(onReady) {
@@ -505,7 +539,7 @@ Gantt.workspace = (function() {
         });
       })
       .catch(function(e) {
-        showToast(e.message || 'Load failed', true);
+        if (e && e.status && !e.isConnectionError) showToast(e.message || 'Load failed', true);
       })
       .finally(function() {
         setLoading(false);
@@ -569,6 +603,9 @@ Gantt.workspace = (function() {
 
   function run() {
     var el = state.getEl();
+    if (api.setConnectionListener) {
+      api.setConnectionListener(setServerConnectionState);
+    }
     var normalizedStoredEmployeeId = normalizeEmployeeId(state.getEmployeeId());
     if (state.getEmployeeId() && !normalizedStoredEmployeeId) {
       state.setEmployeeId('');
@@ -706,6 +743,7 @@ Gantt.workspace = (function() {
       el.ganttPanRight.addEventListener('click', function() { panTimeline('right'); });
     }
 
+    updateServerIndicatorUi();
     updateModeUi();
     startLockPolling();
     refreshAll();

@@ -2,20 +2,38 @@ window.Gantt = window.Gantt || {};
 
 Gantt.api = (function() {
   var EMPLOYEE_ID_STORAGE_KEY = 'gantt-employee-id';
+  var connectionListener = null;
+
+  function notifyConnection(status) {
+    if (typeof connectionListener === 'function') connectionListener(status);
+  }
+
+  function isCoreConnectionEndpoint(url) {
+    return /^\/api\/(?:project|tasks|dependencies|edit-lock)(?:$|[\/?])/.test(url || '');
+  }
 
   function requestJson(url, options) {
-    return fetch(url, options).then(function(r) {
-      return r.text().then(function(text) {
-        var data = text ? JSON.parse(text) : {};
-        if (!r.ok) {
-          var error = new Error((data && (data.message || data.detail && data.detail.message || data.detail)) || 'Request failed');
-          error.status = r.status;
-          error.data = data;
-          throw error;
-        }
-        return data;
+    return fetch(url, options)
+      .then(function(r) {
+        return r.text().then(function(text) {
+          var data = text ? JSON.parse(text) : {};
+          if (!r.ok) {
+            var error = new Error((data && (data.message || data.detail && data.detail.message || data.detail)) || 'Request failed');
+            error.status = r.status;
+            error.data = data;
+            error.isConnectionError =
+              r.status >= 500 ||
+              (r.status === 404 && isCoreConnectionEndpoint(url));
+            throw error;
+          }
+          notifyConnection('online');
+          return data;
+        });
+      })
+      .catch(function(error) {
+        if (!error || !error.status || error.isConnectionError) notifyConnection('offline');
+        throw error;
       });
-    });
   }
 
   function getEmployeeId() {
@@ -40,27 +58,27 @@ Gantt.api = (function() {
   }
 
   function getProject() {
-    return fetch('/api/project').then(function(r) { return r.json(); });
+    return requestJson('/api/project');
   }
 
   function getTasks() {
-    return fetch('/api/tasks').then(function(r) { return r.json(); });
+    return requestJson('/api/tasks');
   }
 
   function getDependencies() {
-    return fetch('/api/dependencies').then(function(r) { return r.json(); });
+    return requestJson('/api/dependencies');
   }
 
   function getTaskRag(taskUid) {
-    return fetch('/api/tasks/' + taskUid + '/rag').then(function(r) { return r.json(); });
+    return requestJson('/api/tasks/' + taskUid + '/rag');
   }
 
   function getTaskComments(taskUid) {
-    return fetch('/api/tasks/' + taskUid + '/comments').then(function(r) { return r.json(); });
+    return requestJson('/api/tasks/' + taskUid + '/comments');
   }
 
   function getTaskRisks(taskUid) {
-    return fetch('/api/tasks/' + taskUid + '/risks').then(function(r) { return r.json(); });
+    return requestJson('/api/tasks/' + taskUid + '/risks');
   }
 
   function patchTask(taskUid, payload) {
@@ -170,6 +188,10 @@ Gantt.api = (function() {
     });
   }
 
+  function setConnectionListener(listener) {
+    connectionListener = typeof listener === 'function' ? listener : null;
+  }
+
   return {
     getProject: getProject,
     getTasks: getTasks,
@@ -191,6 +213,7 @@ Gantt.api = (function() {
     getEditLock: getEditLock,
     getAuditEvents: getAuditEvents,
     acquireEditLock: acquireEditLock,
-    releaseEditLock: releaseEditLock
+    releaseEditLock: releaseEditLock,
+    setConnectionListener: setConnectionListener
   };
 })();
