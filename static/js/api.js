@@ -1,6 +1,21 @@
 window.Gantt = window.Gantt || {};
 
 Gantt.api = (function() {
+  function requestJson(url, options) {
+    return fetch(url, options).then(function(r) {
+      return r.text().then(function(text) {
+        var data = text ? JSON.parse(text) : {};
+        if (!r.ok) {
+          var error = new Error((data && (data.message || data.detail && data.detail.message || data.detail)) || 'Request failed');
+          error.status = r.status;
+          error.data = data;
+          throw error;
+        }
+        return data;
+      });
+    });
+  }
+
   function getProject() {
     return fetch('/api/project').then(function(r) { return r.json(); });
   }
@@ -93,6 +108,26 @@ Gantt.api = (function() {
     return '/api/export';
   }
 
+  function getEditLock() {
+    return requestJson('/api/edit-lock');
+  }
+
+  function acquireEditLock(payload) {
+    return requestJson('/api/edit-lock/acquire', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+  }
+
+  function releaseEditLock(payload) {
+    return requestJson('/api/edit-lock/release', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+  }
+
   return {
     getProject: getProject,
     getTasks: getTasks,
@@ -109,6 +144,9 @@ Gantt.api = (function() {
     postDependency: postDependency,
     deleteDependency: deleteDependency,
     importFile: importFile,
-    exportUrl: exportUrl
+    exportUrl: exportUrl,
+    getEditLock: getEditLock,
+    acquireEditLock: acquireEditLock,
+    releaseEditLock: releaseEditLock
   };
 })();

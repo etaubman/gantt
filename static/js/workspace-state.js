@@ -11,6 +11,7 @@ Gantt.state = (function() {
   let collapsedSet = {};
   let employeeId = window.localStorage.getItem(EMPLOYEE_ID_STORAGE_KEY) || '';
   let editMode = window.localStorage.getItem(MODE_STORAGE_KEY) === 'edit' && !!employeeId;
+  let editLock = { locked: false, employee_id: null, locked_at: null, updated_at: null };
   let selectedDomainUid = 'all';
 
   const ZOOM_PX_PER_DAY = { years: 1, quarters: 2, months: 4, weeks: 8, days: 16 };
@@ -140,6 +141,7 @@ Gantt.state = (function() {
     getSelectedDomainUid: function() { return selectedDomainUid; },
     isEditMode: function() { return editMode; },
     getEmployeeId: function() { return employeeId; },
+    getEditLock: function() { return editLock; },
     getEl: function() { return el; },
     getConstants: function() {
       var px = getPxPerDay();
@@ -154,6 +156,9 @@ Gantt.state = (function() {
     setTaskRag: function(r) { taskRag = r; },
     setSelectedTaskUid: function(uid) { selectedTaskUid = uid; },
     setSelectedDomainUid: function(uid) { selectedDomainUid = uid || 'all'; },
+    setEditLock: function(lock) {
+      editLock = lock || { locked: false, employee_id: null, locked_at: null, updated_at: null };
+    },
     setEditMode: function(enabled) {
       editMode = !!enabled;
       window.localStorage.setItem(MODE_STORAGE_KEY, editMode ? 'edit' : 'read');

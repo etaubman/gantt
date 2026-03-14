@@ -73,6 +73,13 @@ def init_db():
                 updated_at TEXT NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS edit_lock (
+                lock_name TEXT PRIMARY KEY,
+                employee_id TEXT NOT NULL,
+                locked_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
             CREATE INDEX IF NOT EXISTS idx_tasks_project ON tasks(project_uid);
             CREATE INDEX IF NOT EXISTS idx_tasks_parent ON tasks(parent_task_uid);
             CREATE INDEX IF NOT EXISTS idx_dependencies_project ON dependencies(project_uid);

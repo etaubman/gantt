@@ -1,5 +1,6 @@
 """FastAPI app: API routes and static file serving."""
 import os
+import re
 import uuid
 from datetime import datetime, date
 from typing import Optional
@@ -80,6 +81,14 @@ class DependencyCreate(BaseModel):
     dependency_type: str  # FS, SS, FF, SF
 
 
+class EditLockRequest(BaseModel):
+    employee_id: str
+    force: bool = False
+
+
+EMPLOYEE_ID_RE = re.compile(r"^[a-zA-Z]{2}[0-9]{5}$")
+
+
 def _now() -> str:
     return datetime.utcnow().isoformat() + "Z"
 
@@ -92,6 +101,28 @@ def _normalize_task_dict(row) -> dict:
     task = dict(row)
     task["is_milestone"] = bool(task.get("is_milestone"))
     return task
+
+
+def _normalize_employee_id(employee_id: str) -> str:
+    value = (employee_id or "").strip()
+    if not EMPLOYEE_ID_RE.fullmatch(value):
+        raise HTTPException(400, "Employee ID must match format AA12345")
+    return value[:2].upper() + value[2:]
+
+
+def _get_edit_lock(conn):
+    row = conn.execute(
+        "SELECT lock_name, employee_id, locked_at, updated_at FROM edit_lock WHERE lock_name = ?",
+        ("workspace",),
+    ).fetchone()
+    if not row:
+        return {"locked": False, "employee_id": None, "locked_at": None, "updated_at": None}
+    return {
+        "locked": True,
+        "employee_id": row["employee_id"],
+        "locked_at": row["locked_at"],
+        "updated_at": row["updated_at"],
+    }
 
 
 # --- Projects ---
@@ -247,6 +278,52 @@ def update_task(uid: str, body: TaskUpdate):
     if not row:
         raise HTTPException(404, "Task not found")
     return _normalize_task_dict(row)
+
+
+# --- Edit lock ---
+
+@app.get("/api/edit-lock")
+def get_edit_lock():
+    with get_conn() as conn:
+        return _get_edit_lock(conn)
+
+
+@app.post("/api/edit-lock/acquire")
+def acquire_edit_lock(body: EditLockRequest):
+    employee_id = _normalize_employee_id(body.employee_id)
+    now = _now()
+    with get_conn() as conn:
+        current = _get_edit_lock(conn)
+        if current["locked"] and current["employee_id"] != employee_id and not body.force:
+            raise HTTPException(409, {
+                "message": f"Edit mode is currently locked by {current['employee_id']}",
+                "employee_id": current["employee_id"],
+                "locked_at": current["locked_at"],
+            })
+        locked_at = current["locked_at"] if current["locked"] and current["employee_id"] == employee_id else now
+        conn.execute(
+            """INSERT OR REPLACE INTO edit_lock (lock_name, employee_id, locked_at, updated_at)
+               VALUES (?, ?, ?, ?)""",
+            ("workspace", employee_id, locked_at, now),
+        )
+        return _get_edit_lock(conn)
+
+
+@app.post("/api/edit-lock/release")
+def release_edit_lock(body: EditLockRequest):
+    employee_id = _normalize_employee_id(body.employee_id)
+    with get_conn() as conn:
+        current = _get_edit_lock(conn)
+        if not current["locked"]:
+            return current
+        if current["employee_id"] != employee_id and not body.force:
+            raise HTTPException(409, {
+                "message": f"Edit mode is currently locked by {current['employee_id']}",
+                "employee_id": current["employee_id"],
+                "locked_at": current["locked_at"],
+            })
+        conn.execute("DELETE FROM edit_lock WHERE lock_name = ?", ("workspace",))
+        return _get_edit_lock(conn)
 
 
 @app.delete("/api/tasks/{uid}", status_code=204)

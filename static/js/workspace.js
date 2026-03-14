@@ -10,9 +10,12 @@ Gantt.workspace = (function() {
   var showToast = Gantt.utils.showToast;
   var prettyDate = Gantt.utils.prettyDate;
   var GANTT_VERTICAL_OFFSET = 5;
+  var EMPLOYEE_ID_RE = /^[a-zA-Z]{2}[0-9]{5}$/;
 
   var scrollSyncDone = false;
   var hasCenteredInitialView = false;
+  var lockPollTimer = null;
+  var hasShownLockLostToast = false;
   function syncVerticalScroll() {
     var el = state.getEl();
     if (!el.taskTableWrap || !el.ganttBody || !el.ganttBodyViewport) return;
@@ -89,16 +92,35 @@ Gantt.workspace = (function() {
     var el = state.getEl();
     var editMode = state.isEditMode();
     var employeeId = state.getEmployeeId();
+    var lock = state.getEditLock();
+    var lockedByOther = lock && lock.locked && lock.employee_id && lock.employee_id !== employeeId;
+    var lockedBySelf = lock && lock.locked && lock.employee_id && lock.employee_id === employeeId;
     if (el.workspaceModeIndicator) {
       el.workspaceModeIndicator.textContent = editMode
-        ? ('Edit mode' + (employeeId ? ' • ' + employeeId : ''))
-        : 'Read mode';
+        ? ('Edit mode • ' + employeeId)
+        : lockedByOther
+          ? ('Locked by ' + lock.employee_id)
+          : lockedBySelf
+            ? ('Locked by you • ' + employeeId)
+            : 'Read mode';
       el.workspaceModeIndicator.classList.toggle('is-edit', editMode);
     }
     if (el.workspaceModeToggle) {
-      el.workspaceModeToggle.textContent = editMode ? 'Switch to read' : 'Switch to edit';
+      el.workspaceModeToggle.textContent = editMode
+        ? 'Unlock edit'
+        : lockedByOther
+          ? 'Take edit lock'
+          : lockedBySelf
+            ? 'Resume edit'
+            : 'Switch to edit';
     }
-    if (el.btnImport) el.btnImport.disabled = !editMode;
+    if (el.btnImport) el.btnImport.disabled = !editMode || !lockedBySelf;
+  }
+
+  function normalizeEmployeeId(value) {
+    var trimmed = (value || '').trim();
+    if (!EMPLOYEE_ID_RE.test(trimmed)) return '';
+    return trimmed.slice(0, 2).toUpperCase() + trimmed.slice(2);
   }
 
   function promptForEmployeeId(onDone) {
@@ -126,9 +148,9 @@ Gantt.workspace = (function() {
     });
     overlay.querySelector('.btn-employee-cancel').addEventListener('click', function() { close(''); });
     overlay.querySelector('.btn-employee-save').addEventListener('click', function() {
-      var value = (input.value || '').trim();
+      var value = normalizeEmployeeId(input.value || '');
       if (!value) {
-        showToast('Employee ID is required for edit mode', true);
+        showToast('Employee ID must match format AA12345', true);
         input.focus();
         return;
       }
@@ -155,12 +177,48 @@ Gantt.workspace = (function() {
     rerenderDetailIfOpen();
   }
 
+  function applyLockState(lock) {
+    var currentEmployeeId = state.getEmployeeId();
+    var previousLock = state.getEditLock();
+    state.setEditLock(lock);
+    if (state.isEditMode() && (!lock.locked || lock.employee_id !== currentEmployeeId)) {
+      state.setEditMode(false);
+      if (!hasShownLockLostToast) {
+        showToast(lock.locked ? ('Edit mode taken by ' + lock.employee_id) : 'Edit mode unlocked', true);
+        hasShownLockLostToast = true;
+      }
+    } else if (lock.locked && lock.employee_id === currentEmployeeId) {
+      hasShownLockLostToast = false;
+    } else if (!previousLock.locked || previousLock.employee_id !== lock.employee_id) {
+      hasShownLockLostToast = false;
+    }
+    updateModeUi();
+    rerenderDetailIfOpen();
+  }
+
+  function pollEditLock() {
+    return api.getEditLock()
+      .then(function(lock) {
+        applyLockState(lock);
+      })
+      .catch(function(e) {
+        showToast(e.message || 'Unable to check edit lock', true);
+      });
+  }
+
+  function startLockPolling() {
+    if (lockPollTimer) return;
+    pollEditLock();
+    lockPollTimer = window.setInterval(pollEditLock, 1000);
+  }
+
   function ensureEditAccess(onReady) {
-    if (!state.isEditMode()) {
+    var lock = state.getEditLock();
+    var employeeId = state.getEmployeeId();
+    if (!state.isEditMode() || !lock.locked || lock.employee_id !== employeeId) {
       showToast('Switch to edit mode to make changes', true);
       return;
     }
-    var employeeId = state.getEmployeeId();
     if (employeeId) {
       onReady(employeeId);
       return;
@@ -173,20 +231,64 @@ Gantt.workspace = (function() {
     });
   }
 
+  function acquireLock(employeeId, force) {
+    return api.acquireEditLock({ employee_id: employeeId, force: !!force })
+      .then(function(lock) {
+        applyLockState(lock);
+        setEditMode(true);
+        return lock;
+      })
+      .catch(function(e) {
+        if (e.status === 409 && e.data && e.data.employee_id) {
+          applyLockState({
+            locked: true,
+            employee_id: e.data.employee_id,
+            locked_at: e.data.locked_at || null,
+            updated_at: e.data.locked_at || null
+          });
+        }
+        throw e;
+      });
+  }
+
+  function releaseLock(employeeId, force) {
+    return api.releaseEditLock({ employee_id: employeeId, force: !!force })
+      .then(function(lock) {
+        applyLockState(lock);
+        setEditMode(false);
+        return lock;
+      });
+  }
+
   function toggleMode() {
+    var employeeId = state.getEmployeeId();
+
     if (state.isEditMode()) {
-      setEditMode(false);
+      releaseLock(employeeId, false)
+        .catch(function(e) { showToast(e.message || 'Unable to unlock edit mode', true); });
       return;
     }
-    if (state.getEmployeeId()) {
-      setEditMode(true);
-      return;
-    }
-    promptForEmployeeId(function(value) {
+
+    function continueWithEmployeeId(value) {
       if (!value) return;
       state.setEmployeeId(value);
-      setEditMode(true);
-    });
+      var lock = state.getEditLock();
+      if (lock.locked && lock.employee_id && lock.employee_id !== value) {
+        if (!window.confirm('Edit mode is currently locked by ' + lock.employee_id + '. Take over the lock?')) return;
+        acquireLock(value, true)
+          .catch(function(e) { showToast(e.message || 'Unable to take edit lock', true); });
+        return;
+      }
+      acquireLock(value, false)
+        .catch(function(e) { showToast(e.message || 'Unable to enable edit mode', true); });
+    }
+
+    if (employeeId) {
+      continueWithEmployeeId(employeeId);
+      return;
+    }
+
+    promptForEmployeeId(continueWithEmployeeId);
   }
 
   function getFilteredTree(tree) {
@@ -355,6 +457,13 @@ Gantt.workspace = (function() {
 
   function run() {
     var el = state.getEl();
+    var normalizedStoredEmployeeId = normalizeEmployeeId(state.getEmployeeId());
+    if (state.getEmployeeId() && !normalizedStoredEmployeeId) {
+      state.setEmployeeId('');
+      state.setEditMode(false);
+    } else if (normalizedStoredEmployeeId && normalizedStoredEmployeeId !== state.getEmployeeId()) {
+      state.setEmployeeId(normalizedStoredEmployeeId);
+    }
 
     var btnExpandAll = document.getElementById('btn-expand-all');
     var btnCollapseAll = document.getElementById('btn-collapse-all');
@@ -453,6 +562,7 @@ Gantt.workspace = (function() {
     }
 
     updateModeUi();
+    startLockPolling();
     refreshAll();
   }
 
