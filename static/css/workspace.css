@@ -103,13 +103,13 @@
 }
 
 .task-panel {
-  flex: 0 0 50%;
-  width: 50%;
+  flex: 0 0 60%;
+  width: 60%;
 }
 
 .gantt-panel {
-  flex: 0 0 50%;
-  width: 50%;
+  flex: 0 0 40%;
+  width: 40%;
 }
 
 .task-panel .panel-label,
@@ -354,6 +354,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  cursor: help;
+}
+
+.task-title-tooltip-anchor:focus-visible {
+  outline: 2px solid rgba(97, 168, 255, 0.6);
+  outline-offset: 3px;
+  border-radius: 6px;
 }
 
 .task-table .rag-dot {
@@ -527,6 +534,53 @@
   margin-top: 0.45rem;
   color: var(--text-secondary);
   font-size: 0.82rem;
+}
+
+.task-super-tooltip {
+  position: fixed;
+  z-index: 1200;
+  width: min(360px, calc(100vw - 16px));
+  padding: 0.8rem 0.9rem;
+  border-radius: 14px;
+  border: 1px solid rgba(97, 168, 255, 0.18);
+  background: linear-gradient(180deg, rgba(18, 26, 38, 0.98) 0%, rgba(10, 15, 23, 0.98) 100%);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(14px);
+  pointer-events: none;
+}
+
+.task-super-tooltip-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.task-super-tooltip-desc {
+  margin-top: 0.45rem;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.task-super-tooltip-grid {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 0.35rem 0.6rem;
+  margin-top: 0.75rem;
+  font-size: 0.78rem;
+}
+
+.task-super-tooltip-label {
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+}
+
+.task-super-tooltip-value {
+  color: var(--text-primary);
+  word-break: break-word;
 }
 
 .status-badge.status-complete {
@@ -1049,8 +1103,8 @@
   }
 
   .task-panel {
-    flex-basis: 50%;
-    width: 50%;
+    flex-basis: 60%;
+    width: 60%;
   }
 
   .gantt-date-range-wrap {
