@@ -90,6 +90,9 @@ Gantt.workspace = (function() {
     state.setSelectedTaskUid(uid || null);
   }
 
+  var ICON_LOCK = '<span class="mode-icon mode-icon-lock" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>';
+  var ICON_UNLOCK = '<span class="mode-icon mode-icon-unlock" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 5-5h0a5 5 0 0 1 4 2"/></svg></span>';
+
   function updateModeUi() {
     var el = state.getEl();
     var editMode = state.isEditMode();
@@ -98,29 +101,35 @@ Gantt.workspace = (function() {
     var lockedByOther = lock && lock.locked && lock.employee_id && lock.employee_id !== employeeId;
     var lockedBySelf = lock && lock.locked && lock.employee_id && lock.employee_id === employeeId;
     if (el.workspaceModeIndicator) {
-      el.workspaceModeIndicator.textContent = editMode
-        ? ('Edit mode • ' + employeeId)
+      var indIcon = (editMode || lockedBySelf) ? ICON_UNLOCK : ICON_LOCK;
+      var indText = editMode
+        ? ('Editing • ' + employeeId)
         : lockedByOther
           ? ('Locked by ' + lock.employee_id)
           : lockedBySelf
-            ? ('Locked by you • ' + employeeId)
-            : 'Read mode';
+            ? ('Your lock • ' + employeeId)
+            : 'Read only';
+      el.workspaceModeIndicator.innerHTML = indIcon + '<span class="mode-text">' + indText + '</span>';
       el.workspaceModeIndicator.classList.toggle('is-edit', editMode);
     }
     if (el.workspaceModeToggle) {
-      el.workspaceModeToggle.textContent = editMode
-        ? 'Unlock edit'
+      var btnIcon = editMode ? ICON_LOCK : ICON_UNLOCK;
+      var btnText = editMode
+        ? 'Release Lock'
         : lockedByOther
-          ? 'Take edit lock'
+          ? ('Take Lock from ' + lock.employee_id)
           : lockedBySelf
-            ? 'Resume edit'
-            : 'Switch to edit';
+            ? 'Resume editing'
+            : 'Lock for Editing';
+      el.workspaceModeToggle.innerHTML = btnIcon + '<span class="btn-text">' + btnText + '</span>';
     }
     if (el.btnTimelineEdit) {
       var canTimelineEdit = !!editMode && !!lockedBySelf;
       el.btnTimelineEdit.disabled = !canTimelineEdit;
       el.btnTimelineEdit.classList.toggle('is-active', canTimelineEdit && state.isTimelineEditMode());
-      el.btnTimelineEdit.textContent = state.isTimelineEditMode() ? 'Edit timeline on' : 'Timeline edit';
+      var tlIcon = (canTimelineEdit && state.isTimelineEditMode()) ? ICON_UNLOCK : ICON_LOCK;
+      var tlText = state.isTimelineEditMode() ? 'Timeline editing on' : 'Timeline edit';
+      el.btnTimelineEdit.innerHTML = tlIcon + '<span class="btn-text">' + tlText + '</span>';
     }
     if (el.btnImport) {
       var showImport = !!editMode && !!lockedBySelf;

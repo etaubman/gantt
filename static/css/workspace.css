@@ -40,6 +40,7 @@
 .workspace-header .header-actions {
   flex-wrap: wrap;
   justify-content: flex-end;
+  gap: 0.75rem;
 }
 
 .header-status-group,
@@ -53,7 +54,13 @@
   border: 1px solid rgba(255,255,255,0.04);
 }
 
-.header-action-group-exports {
+
+.header-action-group-edit {
+  background: rgba(97, 168, 255, 0.04);
+  border-color: rgba(97, 168, 255, 0.08);
+}
+
+.header-action-group-data {
   background: rgba(97, 168, 255, 0.04);
   border-color: rgba(97, 168, 255, 0.08);
 }
@@ -93,6 +100,7 @@
 .workspace-mode-indicator {
   display: inline-flex;
   align-items: center;
+  gap: 0.5rem;
   min-height: 34px;
   padding: 0 0.75rem;
   border-radius: 999px;
@@ -101,6 +109,31 @@
   color: var(--text-secondary);
   font-size: 0.8rem;
   font-weight: 700;
+}
+
+.workspace-mode-indicator .mode-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
+.workspace-mode-indicator .mode-icon svg {
+  display: block;
+}
+
+.workspace-mode-toggle .mode-icon,
+.btn .mode-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.workspace-mode-toggle .mode-icon svg,
+.btn .mode-icon svg {
+  display: block;
 }
 
 .workspace-server-indicator {
@@ -1714,9 +1747,12 @@
 }
 
 .gantt-toolbar-btn {
+  display: inline-flex;
+  align-items: center;
   min-height: 32px;
   padding: 0 0.75rem;
 }
+
 
 .gantt-toolbar-btn.is-active {
   background: rgba(97, 168, 255, 0.18);

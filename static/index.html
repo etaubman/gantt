@@ -22,17 +22,21 @@
       <div class="header-actions">
         <div class="header-status-group">
           <span class="workspace-server-indicator is-unknown" id="workspace-server-indicator">Checking server...</span>
-          <span class="workspace-mode-indicator" id="workspace-mode-indicator">Read mode</span>
+          <span class="workspace-mode-indicator" id="workspace-mode-indicator">Read only</span>
+        </div>
+        <div class="header-action-group header-action-group-edit">
+          <button type="button" class="btn btn-secondary" id="workspace-mode-toggle">Lock for editing</button>
         </div>
         <div class="header-action-group">
           <button type="button" class="btn btn-secondary" id="btn-audit-log">Audit log</button>
-          <button type="button" class="btn btn-secondary" id="workspace-mode-toggle">Switch to edit</button>
         </div>
-        <div class="header-action-group header-action-group-exports">
+        <div class="header-action-group header-action-group-data">
           <input type="file" id="file-import" accept=".xlsx,.xls" />
           <button type="button" class="btn btn-secondary" id="btn-import">Import Excel</button>
-          <button type="button" class="btn btn-secondary" id="btn-export-report">Export Report</button>
           <button type="button" class="btn btn-primary" id="btn-export">Export Excel</button>
+        </div>
+        <div class="header-action-group">
+          <button type="button" class="btn btn-secondary" id="btn-export-report">Export Report</button>
         </div>
       </div>
     </header>
