@@ -18,6 +18,7 @@ Gantt.state = (function() {
   let selectedRag = 'all';
   let selectedStatus = 'all';
   let focusedTaskUid = null;
+  let timelineEditMode = false;
 
   const ZOOM_PX_PER_DAY = { years: 1, quarters: 2, months: 4, weeks: 8, days: 16 };
   const DEFAULT_ZOOM = 'months';
@@ -42,6 +43,7 @@ Gantt.state = (function() {
     ganttResetView: document.getElementById('gantt-reset-view'),
     ganttPanLeft: document.getElementById('gantt-pan-left'),
     ganttPanRight: document.getElementById('gantt-pan-right'),
+    btnTimelineEdit: document.getElementById('btn-timeline-edit'),
     taskTbody: document.getElementById('task-tbody'),
     taskTableWrap: document.getElementById('task-table-wrap'),
     ganttHeader: document.getElementById('gantt-header'),
@@ -158,6 +160,8 @@ Gantt.state = (function() {
     getSelectedRag: function() { return selectedRag; },
     getSelectedStatus: function() { return selectedStatus; },
     getFocusedTaskUid: function() { return focusedTaskUid; },
+    isTimelineEditMode: function() { return timelineEditMode; },
+    setTimelineEditMode: function(enabled) { timelineEditMode = !!enabled; },
     isEditMode: function() { return editMode; },
     getEmployeeId: function() { return employeeId; },
     getEditLock: function() { return editLock; },

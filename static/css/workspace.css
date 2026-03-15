@@ -1495,6 +1495,12 @@
   padding: 0 0.75rem;
 }
 
+.gantt-toolbar-btn.is-active {
+  background: rgba(97, 168, 255, 0.18);
+  border-color: rgba(97, 168, 255, 0.35);
+  color: #77b6ff;
+}
+
 .gantt-pan-btn {
   min-width: 36px;
   padding: 0;
@@ -1829,6 +1835,36 @@
 
 .gantt-dependency-link.outgoing {
   stroke: #77b6ff;
+}
+
+.gantt-dependency-link.gantt-dependency-drawing {
+  stroke: #77b6ff;
+  stroke-width: 2.5;
+  fill: none;
+  pointer-events: none;
+}
+
+.gantt-dep-dot {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid rgba(119, 182, 255, 0.9);
+  background: rgba(18, 26, 38, 0.95);
+  cursor: crosshair;
+  z-index: 6;
+  pointer-events: auto;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.gantt-dep-dot:hover {
+  transform: scale(1.2);
+  box-shadow: 0 0 0 3px rgba(119, 182, 255, 0.35);
+}
+
+.gantt-dep-dot-left,
+.gantt-dep-dot-right {
+  margin-left: -6px;
 }
 
 .gantt-super-tooltip {

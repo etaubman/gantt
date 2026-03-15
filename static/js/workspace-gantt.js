@@ -227,7 +227,15 @@ Gantt.gantt = (function() {
 
   function clearDependencyHover(overlay, geometryByUid) {
     if (overlay) {
-      while (overlay.childNodes.length > 1) overlay.removeChild(overlay.lastChild);
+      var toRemove = [];
+      for (var i = 1; i < overlay.childNodes.length; i++) {
+        var node = overlay.childNodes[i];
+        var cls = node.getAttribute ? node.getAttribute('class') || '' : '';
+        if (cls.indexOf('gantt-dependency-drawing') === -1) {
+          toRemove.push(node);
+        }
+      }
+      toRemove.forEach(function(n) { overlay.removeChild(n); });
     }
     Object.keys(geometryByUid).forEach(function(uid) {
       var item = geometryByUid[uid];
@@ -346,7 +354,29 @@ Gantt.gantt = (function() {
     positionTooltip(tooltip, event);
   }
 
-  function render(tree, taskRag, selectedTaskUid, onTaskSelect, onTaskOpenDetail) {
+  function pxToDate(px, minDateStart, pxPerDay) {
+    var days = px / pxPerDay;
+    return new Date(minDateStart.getTime() + days * dayMs);
+  }
+
+  function dateToPx(d, minDateStart, pxPerDay) {
+    return ((dateAtStart(d) - minDateStart) / dayMs) * pxPerDay;
+  }
+
+  function formatDateForTooltip(d) {
+    return d.toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+  }
+
+  function showDateTooltip(event, startDate, endDate, isMilestone) {
+    var tooltip = ensureTooltip();
+    if (tooltipHideTimer) { window.clearTimeout(tooltipHideTimer); tooltipHideTimer = null; }
+    var label = isMilestone ? formatDateForTooltip(startDate) : formatDateForTooltip(startDate) + ' – ' + formatDateForTooltip(endDate);
+    tooltip.innerHTML = '<div class="gantt-super-tooltip-title">' + escapeHtml(label) + '</div>';
+    tooltip.hidden = false;
+    positionTooltip(tooltip, event);
+  }
+
+  function render(tree, taskRag, selectedTaskUid, onTaskSelect, onTaskOpenDetail, isTimelineEdit, onTaskDateChange, onDependencyCreate) {
     var el = Gantt.state.getEl();
     var c = Gantt.state.getConstants();
     var basePxPerDay = c.PX_PER_DAY;
@@ -520,28 +550,263 @@ Gantt.gantt = (function() {
       });
       bar.addEventListener('mouseenter', function(e) {
         showDependencyHover(t.uid, dependencies, geometryByUid, dependencyOverlay);
-        showTooltip(e, t, rag, progress);
+        if (!isTimelineEdit) showTooltip(e, t, rag, progress);
       });
       bar.addEventListener('mousemove', function(e) {
-        positionTooltip(ensureTooltip(), e);
+        if (!isTimelineEdit) positionTooltip(ensureTooltip(), e);
       });
-      bar.addEventListener('mouseleave', hideTooltip);
+      bar.addEventListener('mouseleave', function() {
+        if (!isTimelineEdit) hideTooltip();
+      });
       bar.addEventListener('focus', function() {
         showDependencyHover(t.uid, dependencies, geometryByUid, dependencyOverlay);
-        var rect = bar.getBoundingClientRect();
-        showTooltip({
-          clientX: rect.left + Math.min(rect.width / 2, 120),
-          clientY: rect.bottom
-        }, t, rag, progress);
+        if (!isTimelineEdit) {
+          var rect = bar.getBoundingClientRect();
+          showTooltip({
+            clientX: rect.left + Math.min(rect.width / 2, 120),
+            clientY: rect.bottom
+          }, t, rag, progress);
+        }
       });
       bar.addEventListener('blur', function() {
-        hideTooltip();
+        if (!isTimelineEdit) hideTooltip();
         clearDependencyHover(dependencyOverlay, geometryByUid);
       });
+
+      if (isTimelineEdit && onTaskDateChange && !isCancelled) {
+        var geom = geometryByUid[t.uid];
+        var barLeft = left;
+        var barWidth = w;
+        var taskStart = t.start_date ? parseTaskDate(t.start_date) : null;
+        var taskEnd = t.end_date ? parseTaskDate(t.end_date) : null;
+        var DOT_OFFSET = 10;
+
+        function updateDotPositions() {
+          if (leftDot) {
+            leftDot.style.left = (barLeft - DOT_OFFSET) + 'px';
+          }
+          if (rightDot) {
+            rightDot.style.left = (barLeft + barWidth + DOT_OFFSET) + 'px';
+          }
+        }
+
+        var leftDot = null;
+        var rightDot = null;
+        if (!isMilestone && taskStart && taskEnd) {
+          leftDot = document.createElement('div');
+          leftDot.className = 'gantt-dep-dot gantt-dep-dot-left';
+          leftDot.setAttribute('data-uid', t.uid);
+          leftDot.setAttribute('data-side', 'left');
+          leftDot.title = 'Drag to create dependency (this task as successor)';
+          leftDot.style.left = (barLeft - DOT_OFFSET) + 'px';
+          leftDot.style.top = (ROW_HEIGHT / 2 - 6) + 'px';
+          barWrap.appendChild(leftDot);
+
+          rightDot = document.createElement('div');
+          rightDot.className = 'gantt-dep-dot gantt-dep-dot-right';
+          rightDot.setAttribute('data-uid', t.uid);
+          rightDot.setAttribute('data-side', 'right');
+          rightDot.title = 'Drag to create dependency (this task as predecessor)';
+          rightDot.style.left = (barLeft + barWidth + DOT_OFFSET) + 'px';
+          rightDot.style.top = (ROW_HEIGHT / 2 - 6) + 'px';
+          barWrap.appendChild(rightDot);
+
+          setupDependencyDotHandlers(rightDot, leftDot, t.uid, geometryByUid, dependencyOverlay, onDependencyCreate, ROW_HEIGHT, DOT_OFFSET, geom.centerY, createSvgEl);
+        }
+
+        var edgeResizeZone = 8;
+        var isResizing = false;
+        var isMoving = false;
+        var resizeSide = null;
+        var startX = 0;
+        var startLeft = 0;
+        var startWidth = 0;
+        var startLeftDateVal = taskStart || null;
+        var startRightDateVal = taskEnd || null;
+        var isUnscheduled = !taskStart || !taskEnd;
+        var unscheduledDefaultDays = 7;
+
+        function startBarDrag(e) {
+          if (e.button !== 0) return;
+          e.preventDefault();
+          e.stopPropagation();
+          if (leftDot && rightDot && (e.target === leftDot || e.target === rightDot)) return;
+          if (isUnscheduled) {
+            isMoving = true;
+            startLeftDateVal = startLeftDateVal || new Date();
+            startRightDateVal = startRightDateVal || new Date(startLeftDateVal.getTime() + unscheduledDefaultDays * dayMs);
+          } else {
+            var rect = bar.getBoundingClientRect();
+            var localX = e.clientX - rect.left;
+            if (localX < edgeResizeZone) {
+              isResizing = true;
+              resizeSide = 'left';
+            } else if (localX > rect.width - edgeResizeZone) {
+              isResizing = true;
+              resizeSide = 'right';
+            } else {
+              isMoving = true;
+            }
+          }
+          startX = e.clientX;
+          startLeft = barLeft;
+          startWidth = barWidth;
+          document.addEventListener('mousemove', onBarDragMove);
+          document.addEventListener('mouseup', onBarDragEnd);
+        }
+
+        function onBarDragMove(e) {
+          var deltaPx = e.clientX - startX;
+          var deltaDays = deltaPx / pxPerDay;
+          if (isMoving) {
+            var newLeft = Math.max(0, startLeft + deltaPx);
+            var newLeftDate = new Date(startLeftDateVal.getTime() + deltaDays * dayMs);
+            var newRightDate = new Date(startRightDateVal.getTime() + deltaDays * dayMs);
+            bar.style.left = newLeft + 'px';
+            barLeft = newLeft;
+            updateDotPositions();
+            showDateTooltip(e, newLeftDate, newRightDate, false);
+          } else if (isResizing && resizeSide === 'left') {
+            var newLeft = Math.max(0, Math.min(startLeft + startWidth - pxPerDay, startLeft + deltaPx));
+            var newWidth = startLeft + startWidth - newLeft;
+            if (newWidth < pxPerDay) return;
+            var newLeftDate = pxToDate(newLeft, minDateStart, pxPerDay);
+            bar.style.left = newLeft + 'px';
+            bar.style.width = newWidth + 'px';
+            barLeft = newLeft;
+            barWidth = newWidth;
+            updateDotPositions();
+            showDateTooltip(e, newLeftDate, startRightDateVal, false);
+          } else if (isResizing && resizeSide === 'right') {
+            var newWidth = Math.max(pxPerDay, startWidth + deltaPx);
+            var newRightDate = pxToDate(startLeft + newWidth, minDateStart, pxPerDay);
+            bar.style.width = newWidth + 'px';
+            barWidth = newWidth;
+            updateDotPositions();
+            showDateTooltip(e, startLeftDateVal, newRightDate, false);
+          }
+        }
+
+        function onBarDragEnd(e) {
+          document.removeEventListener('mousemove', onBarDragMove);
+          document.removeEventListener('mouseup', onBarDragEnd);
+          hideTooltip();
+          if (!isMoving && !isResizing) return;
+          var newStart, newEnd;
+          if (isMoving) {
+            newStart = new Date(startLeftDateVal.getTime() + ((barLeft - startLeft) / pxPerDay) * dayMs);
+            newEnd = new Date(startRightDateVal.getTime() + ((barLeft - startLeft) / pxPerDay) * dayMs);
+          } else {
+            newStart = resizeSide === 'left' ? pxToDate(barLeft, minDateStart, pxPerDay) : startLeftDateVal;
+            newEnd = resizeSide === 'right' ? pxToDate(barLeft + barWidth, minDateStart, pxPerDay) : startRightDateVal;
+          }
+          var startStr = dateAtStart(newStart).toISOString().slice(0, 10);
+          var endStr = dateAtStart(newEnd).toISOString().slice(0, 10);
+          onTaskDateChange(t.uid, startStr, endStr);
+          isMoving = false;
+          isResizing = false;
+        }
+
+        bar.addEventListener('mousedown', startBarDrag);
+        bar.style.cursor = 'grab';
+      } else if (isTimelineEdit && onTaskDateChange && isMilestone && !isCancelled) {
+        var startX = 0;
+        var startLeft = 0;
+        var mStartDate = t.start_date ? parseTaskDate(t.start_date) : new Date();
+        bar.addEventListener('mousedown', function(e) {
+          if (e.button !== 0) return;
+          e.preventDefault();
+          e.stopPropagation();
+          startX = e.clientX;
+          startLeft = parseFloat(bar.style.left) || left;
+          document.addEventListener('mousemove', onMilestoneMove);
+          document.addEventListener('mouseup', onMilestoneEnd);
+        });
+        function onMilestoneMove(e) {
+          var deltaPx = e.clientX - startX;
+          var newLeft = Math.max(0, startLeft + deltaPx);
+          var newDate = pxToDate(newLeft + w / 2, minDateStart, pxPerDay);
+          bar.style.left = newLeft + 'px';
+          showDateTooltip(e, newDate, newDate, true);
+        }
+        function onMilestoneEnd() {
+          document.removeEventListener('mousemove', onMilestoneMove);
+          document.removeEventListener('mouseup', onMilestoneEnd);
+          hideTooltip();
+          var newLeft = parseFloat(bar.style.left) || left;
+          var newDate = pxToDate(newLeft + w / 2, minDateStart, pxPerDay);
+          var startStr = dateAtStart(newDate).toISOString().slice(0, 10);
+          onTaskDateChange(t.uid, startStr, startStr);
+        }
+        bar.style.cursor = 'grab';
+      }
+
       el.ganttBody.appendChild(row);
     });
+
     el.ganttBody.appendChild(dependencyOverlay);
   }
+
+  function setupDependencyDotHandlers(rightDotEl, leftDotEl, taskUid, geometryByUid, overlay, onDependencyCreate, rowHeight, dotOffset, centerY, createSvg) {
+    var drawingFrom = null;
+    var tempPath = null;
+
+    rightDotEl.addEventListener('mousedown', function(e) {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      var fromGeom = geometryByUid[taskUid];
+      if (!fromGeom) return;
+      drawingFrom = { uid: taskUid, side: 'right' };
+      var startX = fromGeom.left + fromGeom.width + (dotOffset || 0);
+      var startY = centerY;
+      tempPath = createSvg('path');
+      tempPath.setAttribute('class', 'gantt-dependency-link gantt-dependency-drawing');
+      tempPath.setAttribute('stroke', '#77b6ff');
+      tempPath.setAttribute('fill', 'none');
+      tempPath.setAttribute('stroke-width', '2.5');
+      tempPath.setAttribute('d', 'M ' + startX + ' ' + startY + ' L ' + startX + ' ' + startY);
+      overlay.appendChild(tempPath);
+      document.addEventListener('mousemove', onDepDrawMove);
+      document.addEventListener('mouseup', onDepDrawEnd);
+    });
+
+    function onDepDrawMove(e) {
+      if (!drawingFrom || !tempPath) return;
+      var fromGeom = geometryByUid[drawingFrom.uid];
+      if (!fromGeom) return;
+      var scrollWrap = overlay.closest('.gantt-scroll-wrap');
+      var scrollLeft = scrollWrap ? scrollWrap.scrollLeft : 0;
+      var rect = overlay.getBoundingClientRect();
+      var x = e.clientX - rect.left + scrollLeft;
+      var y = e.clientY - rect.top;
+      var startX = fromGeom.left + fromGeom.width + (dotOffset || 0);
+      var startY = centerY;
+      var bend = Math.max(42, Math.abs(x - startX) * 0.35);
+      var c1x = startX + bend;
+      var c2x = x - bend;
+      var d = 'M ' + startX + ' ' + startY + ' C ' + c1x + ' ' + startY + ', ' + c2x + ' ' + y + ', ' + x + ' ' + y;
+      tempPath.setAttribute('d', d);
+    }
+
+    function onDepDrawEnd(e) {
+      document.removeEventListener('mousemove', onDepDrawMove);
+      document.removeEventListener('mouseup', onDepDrawEnd);
+      if (tempPath && tempPath.parentNode) tempPath.parentNode.removeChild(tempPath);
+      tempPath = null;
+      if (!drawingFrom) return;
+      var target = document.elementFromPoint(e.clientX, e.clientY);
+      var leftDot = target && target.closest('.gantt-dep-dot-left');
+      if (leftDot) {
+        var targetUid = leftDot.getAttribute('data-uid');
+        if (targetUid && targetUid !== drawingFrom.uid) {
+          onDependencyCreate(drawingFrom.uid, targetUid);
+        }
+      }
+      drawingFrom = null;
+    }
+  }
+
 
   return { render: render };
 })();

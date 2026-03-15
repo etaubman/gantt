@@ -116,6 +116,12 @@ Gantt.workspace = (function() {
             ? 'Resume edit'
             : 'Switch to edit';
     }
+    if (el.btnTimelineEdit) {
+      var canTimelineEdit = !!editMode && !!lockedBySelf;
+      el.btnTimelineEdit.disabled = !canTimelineEdit;
+      el.btnTimelineEdit.classList.toggle('is-active', canTimelineEdit && state.isTimelineEditMode());
+      el.btnTimelineEdit.textContent = state.isTimelineEditMode() ? 'Edit timeline on' : 'Timeline edit';
+    }
     if (el.btnImport) {
       var showImport = !!editMode && !!lockedBySelf;
       el.btnImport.hidden = !showImport;
@@ -208,6 +214,7 @@ Gantt.workspace = (function() {
   function setEditMode(enabled) {
     var changed = state.isEditMode() !== !!enabled;
     state.setEditMode(enabled);
+    if (!enabled) state.setTimelineEditMode(false);
     updateModeUi();
     if (changed) {
       render();
@@ -222,6 +229,7 @@ Gantt.workspace = (function() {
     state.setEditLock(lock);
     if (state.isEditMode() && (!lock.locked || lock.employee_id !== currentEmployeeId)) {
       state.setEditMode(false);
+      state.setTimelineEditMode(false);
       if (!hasShownLockLostToast) {
         showToast(lock.locked ? ('Edit mode taken by ' + lock.employee_id) : 'Edit mode unlocked', true);
         hasShownLockLostToast = true;
@@ -728,11 +736,26 @@ Gantt.workspace = (function() {
       });
     }, saveQuickEdit);
 
+    var isTimelineEdit = state.isTimelineEditMode() && state.isEditMode();
+    var lock = state.getEditLock();
+    var hasEditLock = lock && lock.locked && lock.employee_id === state.getEmployeeId();
     gantt.render(visibleTree, taskRag, selectedTaskUid, function(uid) {
       setSelectedTask(uid);
       render();
     }, function(uid) {
       openTaskDetail(uid);
+    }, isTimelineEdit && hasEditLock, function(taskUid, startDate, endDate) {
+      ensureEditAccess(function() {
+        api.patchTask(taskUid, { start_date: startDate, end_date: endDate })
+          .then(function() { showToast('Dates updated'); refreshAll(); })
+          .catch(function(e) { showToast(e.message, true); });
+      });
+    }, function(predecessorUid, successorUid) {
+      ensureEditAccess(function() {
+        api.postDependency({ predecessor_task_uid: predecessorUid, successor_task_uid: successorUid, dependency_type: 'FS' })
+          .then(function() { showToast('Dependency added'); refreshAll(); })
+          .catch(function(e) { showToast(e.message, true); });
+      });
     });
     if (el.ganttZoomSelect) el.ganttZoomSelect.value = state.getTimelineZoom();
     requestAnimationFrame(forceScrollSync);
@@ -747,6 +770,7 @@ Gantt.workspace = (function() {
     if (state.getEmployeeId() && !normalizedStoredEmployeeId) {
       state.setEmployeeId('');
       state.setEditMode(false);
+      state.setTimelineEditMode(false);
     } else if (normalizedStoredEmployeeId && normalizedStoredEmployeeId !== state.getEmployeeId()) {
       state.setEmployeeId(normalizedStoredEmployeeId);
     }
@@ -805,6 +829,14 @@ Gantt.workspace = (function() {
     }
     if (el.workspaceModeToggle) {
       el.workspaceModeToggle.addEventListener('click', toggleMode);
+    }
+    if (el.btnTimelineEdit) {
+      el.btnTimelineEdit.addEventListener('click', function() {
+        if (!state.isEditMode() || !state.getEditLock().locked || state.getEditLock().employee_id !== state.getEmployeeId()) return;
+        state.setTimelineEditMode(!state.isTimelineEditMode());
+        updateModeUi();
+        render();
+      });
     }
     var btnAuditLog = document.getElementById('btn-audit-log');
     if (btnAuditLog && auditLog && auditLog.open) {

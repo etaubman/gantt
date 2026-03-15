@@ -3,7 +3,7 @@ import json
 import os
 import re
 import uuid
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException, UploadFile, File, Request
@@ -406,12 +406,21 @@ def create_task(project_uid: str, body: TaskCreate, request: Request):
     with get_conn() as conn:
         if conn.execute("SELECT uid FROM projects WHERE uid = ?", (project_uid,)).fetchone() is None:
             raise HTTPException(404, "Project not found")
+        start_date = body.start_date
+        end_date = body.end_date
         if body.parent_task_uid:
             parent = conn.execute(
-                "SELECT uid, project_uid FROM tasks WHERE uid = ?", (body.parent_task_uid,)
+                "SELECT uid, project_uid, start_date, end_date FROM tasks WHERE uid = ?", (body.parent_task_uid,)
             ).fetchone()
             if not parent or parent["project_uid"] != project_uid:
                 raise HTTPException(400, "Parent task must belong to the same project")
+            if start_date is None and end_date is None and parent.get("start_date"):
+                try:
+                    parent_start = date.fromisoformat(parent["start_date"][:10])
+                    start_date = parent_start.isoformat()
+                    end_date = (parent_start + timedelta(days=7)).isoformat()
+                except (ValueError, TypeError):
+                    pass
         uid = str(uuid.uuid4())
         now = _now()
         conn.execute(
@@ -422,14 +431,14 @@ def create_task(project_uid: str, body: TaskCreate, request: Request):
             (
                 uid, project_uid, body.parent_task_uid, body.name.strip(), body.description or "",
                 body.accountable_person or "", body.responsible_party or "",
-                body.start_date, body.end_date, int(body.is_milestone), body.status, body.progress, body.sort_order,
+                start_date, end_date, int(body.is_milestone), body.status, body.progress, body.sort_order,
                 0, None, None, now, now,
             ),
         )
         task = {"uid": uid, "project_uid": project_uid, "parent_task_uid": body.parent_task_uid,
                 "name": body.name.strip(), "description": body.description or "",
                 "accountable_person": body.accountable_person or "", "responsible_party": body.responsible_party or "",
-                "start_date": body.start_date, "end_date": body.end_date, "is_milestone": body.is_milestone, "status": body.status,
+                "start_date": start_date, "end_date": end_date, "is_milestone": body.is_milestone, "status": body.status,
                 "progress": body.progress, "sort_order": body.sort_order, "is_deleted": False,
                 "deleted_at": None, "deleted_by": None, "created_at": now, "updated_at": now}
         _record_audit_event(
