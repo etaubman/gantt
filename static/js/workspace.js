@@ -531,7 +531,9 @@ Gantt.workspace = (function() {
       var summaryParts = [];
       if (count > 0) summaryParts.push('Filtered by ' + activeLabels.join(', '));
       if (focusTask) summaryParts.push('Focused on ' + focusTask.name);
-      el.taskFilterSummary.textContent = summaryParts.length ? summaryParts.join(' • ') : 'All filters off';
+      var fullSummary = summaryParts.length ? summaryParts.join(' • ') : 'All filters off';
+      el.taskFilterSummary.textContent = fullSummary;
+      el.taskFilterSummary.title = fullSummary;
       el.taskFilterSummary.classList.toggle('is-active', count > 0 || !!focusTask);
     }
     if (el.taskTableWrap) {

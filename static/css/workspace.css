@@ -246,17 +246,20 @@
 .task-panel .panel-toolbar,
 .gantt-toolbar {
   min-height: 70px;
+  max-height: 70px;
   padding: 0.75rem 1rem;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   gap: 0.65rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
   border-bottom: 1px solid rgba(255,255,255,0.05);
   background: rgba(255,255,255,0.03);
+  flex-shrink: 0;
 }
 
 .task-panel-toolbar {
-  align-items: center;
   gap: 0.75rem;
 }
 
@@ -363,12 +366,17 @@
   display: inline-flex;
   align-items: center;
   min-height: 32px;
+  max-width: 220px;
   padding: 0 0.8rem;
   border-radius: 999px;
   background: rgba(255,255,255,0.04);
   color: var(--text-muted);
   font-size: 0.78rem;
   font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 0;
 }
 
 .task-filter-summary.is-active {
