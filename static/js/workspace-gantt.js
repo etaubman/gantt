@@ -111,6 +111,23 @@ Gantt.gantt = (function() {
     return cells;
   }
 
+  function buildWeekendGradient(minDateStart, pxPerDay) {
+    var blockW = 7 * pxPerDay;
+    var shade = 'rgba(0,0,0,0.14)';
+    var dayOfWeek = minDateStart.getDay();
+    var s, e;
+    if (dayOfWeek === 0) { s = 6; e = 7; }
+    else if (dayOfWeek === 1) { s = 5; e = 7; }
+    else if (dayOfWeek === 2) { s = 4; e = 6; }
+    else if (dayOfWeek === 3) { s = 3; e = 5; }
+    else if (dayOfWeek === 4) { s = 2; e = 4; }
+    else if (dayOfWeek === 5) { s = 1; e = 3; }
+    else { s = 0; e = 2; }
+    var a = s * pxPerDay;
+    var b = e * pxPerDay;
+    return 'repeating-linear-gradient(to right, transparent 0, transparent ' + a + 'px, ' + shade + ' ' + a + 'px, ' + shade + ' ' + b + 'px, transparent ' + b + 'px, transparent ' + blockW + 'px)';
+  }
+
   function buildHeaderRows(zoom, minDate, totalDays, pxPerDay) {
     var end = new Date(minDate.getTime() + totalDays * dayMs);
     if (zoom === 'days') {
@@ -456,11 +473,23 @@ Gantt.gantt = (function() {
     el.ganttHeader.style.minWidth = totalWidth + 'px';
     renderHeaderRows(el.ganttHeader, buildHeaderRows(zoom, minDateStart, totalDays, pxPerDay));
 
+    var weekendGradient = buildWeekendGradient(minDateStart, pxPerDay);
+    var existingHeaderWeekend = el.ganttHeader.querySelector('.gantt-weekend-overlay');
+    if (existingHeaderWeekend) existingHeaderWeekend.remove();
+    var headerWeekend = document.createElement('div');
+    headerWeekend.className = 'gantt-weekend-overlay';
+    headerWeekend.style.background = weekendGradient;
+    el.ganttHeader.insertBefore(headerWeekend, el.ganttHeader.firstChild);
+
     el.ganttBody.style.setProperty('--gantt-cell-width', pxPerDay + 'px');
     el.ganttBody.style.setProperty('--gantt-grid-column-width', gridColumnWidth + 'px');
     el.ganttBody.style.setProperty('--gantt-row-height', ROW_HEIGHT + 'px');
     el.ganttBody.innerHTML = '';
     el.ganttBody.style.minWidth = totalWidth + 'px';
+    var bodyWeekend = document.createElement('div');
+    bodyWeekend.className = 'gantt-weekend-overlay';
+    bodyWeekend.style.background = weekendGradient;
+    el.ganttBody.appendChild(bodyWeekend);
     var geometryByUid = {};
     var dependencyOverlay = buildDependencyOverlay(totalWidth, Math.max(tree.length * ROW_HEIGHT, ROW_HEIGHT));
     tree.forEach(function(t, index) {

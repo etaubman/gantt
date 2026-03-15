@@ -1677,6 +1677,13 @@
   white-space: nowrap;
 }
 
+.gantt-weekend-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
 .gantt-header {
   position: sticky;
   top: 0;
@@ -1689,6 +1696,7 @@
   border-bottom: 1px solid rgba(255,255,255,0.05);
   overflow: hidden;
 }
+
 
 .gantt-header-row {
   display: flex;
