@@ -169,25 +169,27 @@ Gantt.gantt = (function() {
 
     var incomingArrow = createSvgEl('marker');
     incomingArrow.setAttribute('id', 'gantt-dep-arrow-incoming');
-    incomingArrow.setAttribute('markerWidth', '10');
-    incomingArrow.setAttribute('markerHeight', '10');
-    incomingArrow.setAttribute('refX', '8');
-    incomingArrow.setAttribute('refY', '5');
+    incomingArrow.setAttribute('markerUnits', 'userSpaceOnUse');
+    incomingArrow.setAttribute('markerWidth', '5');
+    incomingArrow.setAttribute('markerHeight', '5');
+    incomingArrow.setAttribute('refX', '4');
+    incomingArrow.setAttribute('refY', '2.5');
     incomingArrow.setAttribute('orient', 'auto');
     var incomingArrowPath = createSvgEl('path');
-    incomingArrowPath.setAttribute('d', 'M 0 0 L 10 5 L 0 10 z');
+    incomingArrowPath.setAttribute('d', 'M 0 0 L 4 2.5 L 0 5 z');
     incomingArrowPath.setAttribute('fill', '#f6c453');
     incomingArrow.appendChild(incomingArrowPath);
 
     var outgoingArrow = createSvgEl('marker');
     outgoingArrow.setAttribute('id', 'gantt-dep-arrow-outgoing');
-    outgoingArrow.setAttribute('markerWidth', '10');
-    outgoingArrow.setAttribute('markerHeight', '10');
-    outgoingArrow.setAttribute('refX', '8');
-    outgoingArrow.setAttribute('refY', '5');
+    outgoingArrow.setAttribute('markerUnits', 'userSpaceOnUse');
+    outgoingArrow.setAttribute('markerWidth', '5');
+    outgoingArrow.setAttribute('markerHeight', '5');
+    outgoingArrow.setAttribute('refX', '4');
+    outgoingArrow.setAttribute('refY', '2.5');
     outgoingArrow.setAttribute('orient', 'auto');
     var outgoingArrowPath = createSvgEl('path');
-    outgoingArrowPath.setAttribute('d', 'M 0 0 L 10 5 L 0 10 z');
+    outgoingArrowPath.setAttribute('d', 'M 0 0 L 4 2.5 L 0 5 z');
     outgoingArrowPath.setAttribute('fill', '#77b6ff');
     outgoingArrow.appendChild(outgoingArrowPath);
 
@@ -472,10 +474,13 @@ Gantt.gantt = (function() {
         var start = parseTaskDate(t.start_date);
         var end = parseTaskDate(t.end_date);
         if (start && end) {
-          left = Math.max(0, (dateAtStart(start) - minDateStart) / dayMs) * pxPerDay;
+          var startPx = Math.max(0, (dateAtStart(start) - minDateStart) / dayMs * pxPerDay);
+          var endOfEndDate = new Date(dateAtStart(end).getTime() + dayMs);
+          var endPx = (endOfEndDate - minDateStart) / dayMs * pxPerDay;
+          left = startPx;
           w = isMilestone
             ? Math.max(18, Math.min(24, pxPerDay * 0.9))
-            : Math.max(12, (Math.max(1, Math.round((dateAtStart(end) - dateAtStart(start)) / dayMs) + 1)) * pxPerDay);
+            : Math.max(12, endPx - startPx);
         }
       } else {
         left = 0;

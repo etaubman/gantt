@@ -729,7 +729,13 @@ Gantt.workspace = (function() {
     }, function(uid) {
       ensureEditAccess(function() {
         detail.showTaskModal('Add subtask', uid, function(name) {
-          api.postTask({ name: name, parent_task_uid: uid })
+          var parent = tasks.find(function(t) { return t.uid === uid; });
+          var startDate = (parent && parent.start_date) ? parent.start_date : new Date().toISOString().slice(0, 10);
+          var start = new Date(startDate);
+          var end = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
+          var endDate = end.toISOString().slice(0, 10);
+          var payload = { name: name, parent_task_uid: uid, start_date: startDate, end_date: endDate };
+          api.postTask(payload)
             .then(function() { showToast('Subtask added'); refreshAll(); })
             .catch(function(e) { showToast(e.message, true); });
         });

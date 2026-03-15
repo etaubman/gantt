@@ -524,9 +524,14 @@
   el.btnAddSubtask.addEventListener('click', () => {
     if (!selectedTaskUid) return;
     showTaskModal('Add subtask', selectedTaskUid, (name) => {
+      const parent = tasks.find(t => t.uid === selectedTaskUid);
+      const startDate = (parent && parent.start_date) ? parent.start_date : new Date().toISOString().slice(0, 10);
+      const start = new Date(startDate);
+      const end = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
+      const endDate = end.toISOString().slice(0, 10);
       fetch('/api/projects/' + projectUid + '/tasks', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, parent_task_uid: selectedTaskUid })
+        body: JSON.stringify({ name, parent_task_uid: selectedTaskUid, start_date: startDate, end_date: endDate })
       }).then(r => r.json()).then(() => { showToast('Subtask added'); refreshAll(); }).catch(e => showToast(e.message, true));
     });
   });
