@@ -578,6 +578,32 @@ Gantt.workspace = (function() {
     detail.renderDetail(refreshAll);
   }
 
+  function replaceTaskInState(updatedTask) {
+    var tasks = state.getTasks().map(function(task) {
+      return task.uid === updatedTask.uid ? updatedTask : task;
+    });
+    state.setTasks(tasks);
+  }
+
+  function saveQuickEdit(task, field, values) {
+    if (field === 'rag') {
+      return api.postRag(task.uid, values).then(function(rag) {
+        var taskRag = Object.assign({}, state.getTaskRag());
+        taskRag[task.uid] = rag.status;
+        state.setTaskRag(taskRag);
+        showToast('RAG updated');
+        render();
+        return rag;
+      });
+    }
+    return api.patchTask(task.uid, values).then(function(updatedTask) {
+      replaceTaskInState(updatedTask);
+      showToast((field === 'progress' ? 'Progress' : 'Task') + ' updated');
+      render();
+      return updatedTask;
+    });
+  }
+
   function centerTimelineOnToday() {
     var el = state.getEl();
     var wrap = el.ganttScrollWrap;
@@ -700,7 +726,7 @@ Gantt.workspace = (function() {
             .catch(function(e) { showToast(e.message, true); });
         });
       });
-    });
+    }, saveQuickEdit);
 
     gantt.render(visibleTree, taskRag, selectedTaskUid, function(uid) {
       setSelectedTask(uid);
