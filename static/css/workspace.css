@@ -419,8 +419,8 @@
 }
 
 .task-table tbody tr.selected {
-  background: linear-gradient(90deg, rgba(97, 168, 255, 0.12) 0%, rgba(97, 168, 255, 0.03) 100%);
-  box-shadow: inset 3px 0 0 var(--accent), inset 0 1px 0 rgba(255,255,255,0.02);
+  background: linear-gradient(90deg, rgba(97, 168, 255, 0.08) 0%, rgba(97, 168, 255, 0.02) 100%);
+  box-shadow: inset 2px 0 0 rgba(97, 168, 255, 0.5);
 }
 
 .task-table tbody tr.selected:hover {
@@ -470,6 +470,7 @@
 }
 
 .task-name {
+  flex: 1 1 0;
   min-width: 0;
   font-weight: 600;
   line-height: 1.25;
@@ -1549,11 +1550,11 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 2px;
-  background: rgba(255, 119, 119, 0.9);
+  width: 1px;
+  background: rgba(255, 119, 119, 0.7);
   z-index: 4;
   pointer-events: none;
-  box-shadow: 0 0 20px rgba(255, 119, 119, 0.22);
+  box-shadow: 0 0 8px rgba(255, 119, 119, 0.15);
 }
 
 .gantt-today-line::before {
@@ -1587,28 +1588,35 @@
 
 .gantt-header-row {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   flex: 1 1 50%;
   min-height: 0;
-  padding-left: 12px;
 }
 
 .gantt-header-row-major {
-  border-bottom: 1px solid rgba(255,255,255,0.04);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 
 .gantt-header-cell {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  padding: 0 0.35rem;
-  text-align: center;
+  justify-content: flex-start;
+  padding: 0 0.2rem 0 0.15rem;
+  text-align: left;
   color: var(--text-secondary);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+  border-left: 1px solid rgba(255,255,255,0.08);
+  box-sizing: border-box;
+}
+
+.gantt-header-row-major .gantt-header-cell {
+  justify-content: flex-start;
+  padding-left: 0.15rem;
+  border-left-color: rgba(255,255,255,0.12);
 }
 
 .gantt-header-cell-day {
@@ -1616,6 +1624,7 @@
   letter-spacing: 0;
   text-transform: none;
   color: #d7e3f6;
+  font-weight: 600;
 }
 
 .gantt-body {
@@ -1625,10 +1634,11 @@
   background-color: rgba(11, 16, 24, 0.92);
   background-image:
     linear-gradient(to right, rgba(255,255,255,0.06) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255,255,255,0.05) 1px, transparent 1px);
+    linear-gradient(to bottom, rgba(255,255,255,0.04) 1px, transparent 1px);
   background-size:
-    var(--gantt-grid-column-width, calc(var(--gantt-cell-width, 28px) * 7)) 100%,
+    var(--gantt-cell-width, 28px) 100%,
     100% var(--gantt-row-height, 44px);
+  background-position: 0 0, 0 0;
 }
 
 .gantt-row {
@@ -1643,8 +1653,8 @@
 }
 
 .gantt-row.selected {
-  background: linear-gradient(90deg, rgba(97, 168, 255, 0.12) 0%, rgba(97, 168, 255, 0.04) 100%);
-  box-shadow: inset 3px 0 0 rgba(97, 168, 255, 0.9);
+  background: linear-gradient(90deg, rgba(97, 168, 255, 0.08) 0%, rgba(97, 168, 255, 0.02) 100%);
+  box-shadow: inset 2px 0 0 rgba(97, 168, 255, 0.5);
 }
 
 .gantt-row .bar-wrap {
@@ -1680,7 +1690,7 @@
 }
 
 .gantt-row.selected .bar {
-  box-shadow: 0 0 0 1px rgba(97, 168, 255, 0.4), 0 0 0 5px rgba(97, 168, 255, 0.08), 0 14px 28px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 0 0 1px rgba(97, 168, 255, 0.3), 0 0 0 3px rgba(97, 168, 255, 0.06), 0 14px 28px rgba(0, 0, 0, 0.22);
 }
 
 .gantt-row.dependency-row-active,
@@ -1846,25 +1856,26 @@
 
 .gantt-dep-dot {
   position: absolute;
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  border: 2px solid rgba(119, 182, 255, 0.9);
+  border: 1.5px solid rgba(119, 182, 255, 0.6);
   background: rgba(18, 26, 38, 0.95);
   cursor: crosshair;
   z-index: 6;
   pointer-events: auto;
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
 }
 
 .gantt-dep-dot:hover {
-  transform: scale(1.2);
-  box-shadow: 0 0 0 3px rgba(119, 182, 255, 0.35);
+  transform: scale(1.15);
+  border-color: rgba(119, 182, 255, 0.9);
+  box-shadow: 0 0 0 2px rgba(119, 182, 255, 0.25);
 }
 
 .gantt-dep-dot-left,
 .gantt-dep-dot-right {
-  margin-left: -6px;
+  margin-left: -5px;
 }
 
 .gantt-super-tooltip {

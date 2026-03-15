@@ -25,6 +25,14 @@ Gantt.gantt = (function() {
     return new Date(d.getFullYear(), d.getMonth(), d.getDate());
   }
 
+  function toLocalDateStr(d) {
+    var x = dateAtStart(d);
+    var y = String(x.getFullYear());
+    var m = String(x.getMonth() + 1).padStart(2, '0');
+    var day = String(x.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + day;
+  }
+
   function startOfMonth(d) {
     return new Date(d.getFullYear(), d.getMonth(), 1);
   }
@@ -422,7 +430,7 @@ Gantt.gantt = (function() {
       var today = new Date();
       today.setHours(0, 0, 0, 0);
       var daysFromStart = (today - minDateStart) / dayMs;
-      var todayPx = Math.round((daysFromStart * pxPerDay) + (pxPerDay / 2));
+      var todayPx = Math.round(daysFromStart * pxPerDay);
       timelineInner.setAttribute('data-total-width', totalWidth);
       timelineInner.setAttribute('data-today-px', Math.max(0, Math.min(totalWidth, todayPx)));
       timelineInner.setAttribute('data-px-per-day', pxPerDay);
@@ -604,7 +612,7 @@ Gantt.gantt = (function() {
           leftDot.setAttribute('data-side', 'left');
           leftDot.title = 'Drag to create dependency (this task as successor)';
           leftDot.style.left = (barLeft - DOT_OFFSET) + 'px';
-          leftDot.style.top = (ROW_HEIGHT / 2 - 6) + 'px';
+          leftDot.style.top = (ROW_HEIGHT / 2 - 5) + 'px';
           barWrap.appendChild(leftDot);
 
           rightDot = document.createElement('div');
@@ -613,7 +621,7 @@ Gantt.gantt = (function() {
           rightDot.setAttribute('data-side', 'right');
           rightDot.title = 'Drag to create dependency (this task as predecessor)';
           rightDot.style.left = (barLeft + barWidth + DOT_OFFSET) + 'px';
-          rightDot.style.top = (ROW_HEIGHT / 2 - 6) + 'px';
+          rightDot.style.top = (ROW_HEIGHT / 2 - 5) + 'px';
           barWrap.appendChild(rightDot);
 
           setupDependencyDotHandlers(rightDot, leftDot, t.uid, geometryByUid, dependencyOverlay, onDependencyCreate, ROW_HEIGHT, DOT_OFFSET, geom.centerY, createSvgEl);
@@ -684,7 +692,8 @@ Gantt.gantt = (function() {
             showDateTooltip(e, newLeftDate, startRightDateVal, false);
           } else if (isResizing && resizeSide === 'right') {
             var newWidth = Math.max(pxPerDay, startWidth + deltaPx);
-            var newRightDate = pxToDate(startLeft + newWidth, minDateStart, pxPerDay);
+            var rightEdgeDate = pxToDate(startLeft + newWidth, minDateStart, pxPerDay);
+            var newRightDate = new Date(rightEdgeDate.getTime() - dayMs);
             bar.style.width = newWidth + 'px';
             barWidth = newWidth;
             updateDotPositions();
@@ -703,10 +712,15 @@ Gantt.gantt = (function() {
             newEnd = new Date(startRightDateVal.getTime() + ((barLeft - startLeft) / pxPerDay) * dayMs);
           } else {
             newStart = resizeSide === 'left' ? pxToDate(barLeft, minDateStart, pxPerDay) : startLeftDateVal;
-            newEnd = resizeSide === 'right' ? pxToDate(barLeft + barWidth, minDateStart, pxPerDay) : startRightDateVal;
+            if (resizeSide === 'right') {
+              var rightEdge = pxToDate(barLeft + barWidth, minDateStart, pxPerDay);
+              newEnd = new Date(rightEdge.getTime() - dayMs);
+            } else {
+              newEnd = startRightDateVal;
+            }
           }
-          var startStr = dateAtStart(newStart).toISOString().slice(0, 10);
-          var endStr = dateAtStart(newEnd).toISOString().slice(0, 10);
+          var startStr = toLocalDateStr(newStart);
+          var endStr = toLocalDateStr(newEnd);
           onTaskDateChange(t.uid, startStr, endStr);
           isMoving = false;
           isResizing = false;
@@ -740,7 +754,7 @@ Gantt.gantt = (function() {
           hideTooltip();
           var newLeft = parseFloat(bar.style.left) || left;
           var newDate = pxToDate(newLeft + w / 2, minDateStart, pxPerDay);
-          var startStr = dateAtStart(newDate).toISOString().slice(0, 10);
+          var startStr = toLocalDateStr(newDate);
           onTaskDateChange(t.uid, startStr, startStr);
         }
         bar.style.cursor = 'grab';
