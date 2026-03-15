@@ -669,7 +669,11 @@ Gantt.gantt = (function() {
           e.preventDefault();
           e.stopPropagation();
           if (rightDot && e.target === rightDot) return;
-          if (isUnscheduled) {
+          if (bar.classList.contains('milestone')) {
+            isMoving = true;
+            startLeftDateVal = startLeftDateVal || new Date();
+            startRightDateVal = startRightDateVal || new Date(startLeftDateVal.getTime());
+          } else if (isUnscheduled) {
             isMoving = true;
             startLeftDateVal = startLeftDateVal || new Date();
             startRightDateVal = startRightDateVal || new Date(startLeftDateVal.getTime() + unscheduledDefaultDays * dayMs);
@@ -751,36 +755,38 @@ Gantt.gantt = (function() {
           isResizing = false;
         }
 
-        bar.addEventListener('mousedown', startBarDrag);
-        bar.style.cursor = 'grab';
-      } else if (isTimelineEdit && onTaskDateChange && isMilestone && !isCancelled) {
-        var startX = 0;
-        var startLeft = 0;
-        var mStartDate = t.start_date ? parseTaskDate(t.start_date) : new Date();
-        bar.addEventListener('mousedown', function(e) {
-          if (e.button !== 0) return;
-          e.preventDefault();
-          e.stopPropagation();
-          startX = e.clientX;
-          startLeft = parseFloat(bar.style.left) || left;
-          document.addEventListener('mousemove', onMilestoneMove);
-          document.addEventListener('mouseup', onMilestoneEnd);
-        });
-        function onMilestoneMove(e) {
-          var deltaPx = e.clientX - startX;
-          var newLeft = Math.max(0, startLeft + deltaPx);
-          var newDate = pxToDate(newLeft + w / 2, minDateStart, pxPerDay);
-          bar.style.left = newLeft + 'px';
-          showDateTooltip(e, newDate, newDate, true);
-        }
-        function onMilestoneEnd() {
-          document.removeEventListener('mousemove', onMilestoneMove);
-          document.removeEventListener('mouseup', onMilestoneEnd);
-          hideTooltip();
-          var newLeft = parseFloat(bar.style.left) || left;
-          var newDate = pxToDate(newLeft + w / 2, minDateStart, pxPerDay);
-          var startStr = toLocalDateStr(newDate);
-          onTaskDateChange(t.uid, startStr, startStr);
+        if (isMilestone) {
+          var startX = 0;
+          var startLeft = 0;
+          bar.addEventListener('mousedown', function(e) {
+            if (e.button !== 0) return;
+            e.preventDefault();
+            e.stopPropagation();
+            startX = e.clientX;
+            startLeft = parseFloat(bar.style.left) || left;
+            document.addEventListener('mousemove', onMilestoneMove);
+            document.addEventListener('mouseup', onMilestoneEnd);
+          });
+          function onMilestoneMove(e) {
+            var deltaPx = e.clientX - startX;
+            var newLeft = Math.max(0, startLeft + deltaPx);
+            var newDate = pxToDate(newLeft + w / 2, minDateStart, pxPerDay);
+            bar.style.left = newLeft + 'px';
+            var milestoneLabel = barWrap.querySelector('.gantt-milestone-label');
+            if (milestoneLabel) milestoneLabel.style.left = (newLeft + w + 10) + 'px';
+            showDateTooltip(e, newDate, newDate, true);
+          }
+          function onMilestoneEnd() {
+            document.removeEventListener('mousemove', onMilestoneMove);
+            document.removeEventListener('mouseup', onMilestoneEnd);
+            hideTooltip();
+            var newLeft = parseFloat(bar.style.left) || left;
+            var newDate = pxToDate(newLeft + w / 2, minDateStart, pxPerDay);
+            var startStr = toLocalDateStr(newDate);
+            onTaskDateChange(t.uid, startStr, startStr);
+          }
+        } else {
+          bar.addEventListener('mousedown', startBarDrag);
         }
         bar.style.cursor = 'grab';
       }
