@@ -74,6 +74,86 @@ Gantt.auditLog = (function() {
     return JSON.stringify(value, null, 2);
   }
 
+  function formatInlineValue(val) {
+    if (val == null) return '—';
+    if (typeof val === 'boolean') return val ? 'true' : 'false';
+    if (typeof val === 'object') return JSON.stringify(val);
+    return String(val);
+  }
+
+  function flattenObject(obj, prefix, out) {
+    out = out || {};
+    prefix = prefix || '';
+    if (obj == null || typeof obj !== 'object') {
+      out[prefix] = obj;
+      return out;
+    }
+    if (Array.isArray(obj)) {
+      out[prefix] = obj;
+      return out;
+    }
+    Object.keys(obj).forEach(function(key) {
+      var fullKey = prefix ? prefix + '.' + key : key;
+      var v = obj[key];
+      if (v != null && typeof v === 'object' && !Array.isArray(v) && !(v instanceof Date)) {
+        flattenObject(v, fullKey, out);
+      } else {
+        out[fullKey] = v;
+      }
+    });
+    return out;
+  }
+
+  function isNoiseField(key) {
+    if (!key) return true;
+    var lower = key.toLowerCase();
+    if (lower === 'uid' || lower === 'guid' || lower === 'id') return true;
+    if (lower.endsWith('_at') || lower === 'timestamp') return true;
+    return false;
+  }
+
+  function buildFieldDiff(prior, next) {
+    var priorIsObj = prior != null && typeof prior === 'object' && !Array.isArray(prior);
+    var nextIsObj = next != null && typeof next === 'object' && !Array.isArray(next);
+    if (!priorIsObj && !nextIsObj) {
+      if (String(prior) !== String(next) && (prior != null || next != null)) {
+        return [{ type: 'changed', label: 'Value', prior: formatInlineValue(prior), next: formatInlineValue(next) }];
+      }
+      return [];
+    }
+    var priorFlat = priorIsObj ? flattenObject(prior) : {};
+    var nextFlat = nextIsObj ? flattenObject(next) : {};
+    if (!priorIsObj && nextIsObj) priorFlat = {};
+    if (priorIsObj && !nextIsObj) nextFlat = {};
+    var allKeys = Object.keys(priorFlat).concat(Object.keys(nextFlat));
+    allKeys = Array.from(new Set(allKeys)).filter(function(k) {
+      if (k === '') return false;
+      var base = k.split('.').pop();
+      return !isNoiseField(base);
+    }).sort();
+    if (allKeys.length === 0 && priorIsObj && nextIsObj) {
+      var pEmpty = Object.keys(priorFlat).length === 0;
+      var nEmpty = Object.keys(nextFlat).length === 0;
+      if (!pEmpty || !nEmpty) allKeys = [''];
+    }
+    var rows = [];
+    allKeys.forEach(function(key) {
+      var label = key || '(value)';
+      var p = priorFlat.hasOwnProperty(key) ? priorFlat[key] : undefined;
+      var n = nextFlat.hasOwnProperty(key) ? nextFlat[key] : undefined;
+      var pStr = formatInlineValue(p);
+      var nStr = formatInlineValue(n);
+      if (!priorFlat.hasOwnProperty(key)) {
+        rows.push({ type: 'added', label: label, value: nStr });
+      } else if (!nextFlat.hasOwnProperty(key)) {
+        rows.push({ type: 'removed', label: label, value: pStr });
+      } else if (JSON.stringify(p) !== JSON.stringify(n)) {
+        rows.push({ type: 'changed', label: label, prior: pStr, next: nStr });
+      }
+    });
+    return rows;
+  }
+
   function getSelectedEvent(filtered) {
     var match = filtered.find(function(event) { return event.uid === selectedEventUid; });
     if (match) return match;
@@ -269,20 +349,53 @@ Gantt.auditLog = (function() {
         '<div class="audit-log-detail-label">Task</div><div class="audit-log-detail-value">' + escapeHtml(subject) + '</div>' +
         '<div class="audit-log-detail-label">Entity</div><div class="audit-log-detail-value">' + escapeHtml(formatEntityLabel(event.entity_type)) + '</div>' +
       '</div>' +
-      '<div class="audit-log-json-columns">' +
-        '<div class="audit-log-json-card">' +
-          '<div class="audit-log-json-title">Prior value</div>' +
-          '<pre>' + escapeHtml(stringifyValue(event.prior_value)) + '</pre>' +
-        '</div>' +
-        '<div class="audit-log-json-card">' +
-          '<div class="audit-log-json-title">New value</div>' +
-          '<pre>' + escapeHtml(stringifyValue(event.new_value)) + '</pre>' +
-        '</div>' +
-        '<div class="audit-log-json-card">' +
-          '<div class="audit-log-json-title">Metadata</div>' +
-          '<pre>' + escapeHtml(stringifyValue(event.metadata)) + '</pre>' +
-        '</div>' +
-      '</div>';
+      (function() {
+        var diffRows = buildFieldDiff(event.prior_value, event.new_value);
+        var diffHtml = '';
+        if (diffRows.length > 0) {
+          diffHtml = '<div class="audit-log-diff-card">' +
+            '<div class="audit-log-json-title">What changed</div>' +
+            '<div class="audit-log-diff-list">' +
+            diffRows.map(function(r) {
+              if (r.type === 'changed') {
+                return '<div class="audit-log-diff-row audit-log-diff-changed">' +
+                  '<span class="audit-log-diff-label">' + escapeHtml(r.label) + '</span>' +
+                  '<span class="audit-log-diff-prior">' + escapeHtml(r.prior) + '</span>' +
+                  '<span class="audit-log-diff-arrow" aria-hidden="true">→</span>' +
+                  '<span class="audit-log-diff-next">' + escapeHtml(r.next) + '</span>' +
+                '</div>';
+              }
+              if (r.type === 'added') {
+                return '<div class="audit-log-diff-row audit-log-diff-added">' +
+                  '<span class="audit-log-diff-label">' + escapeHtml(r.label) + '</span>' +
+                  '<span class="audit-log-diff-badge audit-log-diff-badge-added">added</span>' +
+                  '<span class="audit-log-diff-next">' + escapeHtml(r.value) + '</span>' +
+                '</div>';
+              }
+              return '<div class="audit-log-diff-row audit-log-diff-removed">' +
+                '<span class="audit-log-diff-label">' + escapeHtml(r.label) + '</span>' +
+                '<span class="audit-log-diff-badge audit-log-diff-badge-removed">removed</span>' +
+                '<span class="audit-log-diff-prior">' + escapeHtml(r.value) + '</span>' +
+              '</div>';
+            }).join('') +
+            '</div></div>';
+        }
+        return (diffHtml ? diffHtml : '') +
+        '<div class="audit-log-json-columns">' +
+          '<div class="audit-log-json-card audit-log-json-prior">' +
+            '<div class="audit-log-json-title">Prior value</div>' +
+            '<pre>' + escapeHtml(stringifyValue(event.prior_value)) + '</pre>' +
+          '</div>' +
+          '<div class="audit-log-json-card audit-log-json-next">' +
+            '<div class="audit-log-json-title">New value</div>' +
+            '<pre>' + escapeHtml(stringifyValue(event.new_value)) + '</pre>' +
+          '</div>' +
+          '<div class="audit-log-json-card">' +
+            '<div class="audit-log-json-title">Metadata</div>' +
+            '<pre>' + escapeHtml(stringifyValue(event.metadata)) + '</pre>' +
+          '</div>' +
+        '</div>';
+      })();
   }
 
   function loadEvents() {
