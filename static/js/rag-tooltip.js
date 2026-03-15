@@ -8,6 +8,8 @@ Gantt.ragTooltip = (function() {
   var cache = {};
   var tooltipEl = null;
   var activeAnchor = null;
+  var loadDelayTimer = null;
+  var TOOLTIP_LOAD_DELAY_MS = 280;
 
   function ensureTooltip() {
     if (tooltipEl && document.body.contains(tooltipEl)) return tooltipEl;
@@ -100,6 +102,10 @@ Gantt.ragTooltip = (function() {
   }
 
   function hideTooltip() {
+    if (loadDelayTimer) {
+      window.clearTimeout(loadDelayTimer);
+      loadDelayTimer = null;
+    }
     activeAnchor = null;
     var tooltip = ensureTooltip();
     tooltip.hidden = true;
@@ -119,22 +125,29 @@ Gantt.ragTooltip = (function() {
     if (options.history) setCache(options.taskUid, options.history);
 
     function handleEnter(event) {
+      if (loadDelayTimer) {
+        window.clearTimeout(loadDelayTimer);
+        loadDelayTimer = null;
+      }
       activeAnchor = anchor;
       showLoading(options.taskName);
       positionTooltip(event);
-      getHistory(options.taskUid)
-        .then(function(history) {
-          if (activeAnchor !== anchor) return;
-          renderTooltip(options.taskName, history);
-          positionTooltip(event);
-        })
-        .catch(function() {
-          if (activeAnchor !== anchor) return;
-          var tooltip = ensureTooltip();
-          tooltip.innerHTML =
-            '<div class="rag-super-tooltip-title">' + escapeHtml(options.taskName || 'RAG status') + '</div>' +
-            '<div class="rag-super-tooltip-empty">Unable to load RAG details</div>';
-        });
+      loadDelayTimer = window.setTimeout(function() {
+        loadDelayTimer = null;
+        getHistory(options.taskUid)
+          .then(function(history) {
+            if (activeAnchor !== anchor) return;
+            renderTooltip(options.taskName, history);
+            positionTooltip(event);
+          })
+          .catch(function() {
+            if (activeAnchor !== anchor) return;
+            var tooltip = ensureTooltip();
+            tooltip.innerHTML =
+              '<div class="rag-super-tooltip-title">' + escapeHtml(options.taskName || 'RAG status') + '</div>' +
+              '<div class="rag-super-tooltip-empty">Unable to load RAG details</div>';
+          });
+      }, TOOLTIP_LOAD_DELAY_MS);
     }
 
     function handleFocus() {

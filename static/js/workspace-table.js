@@ -9,10 +9,12 @@ Gantt.table = (function() {
   var showToast = function(msg, err) { return Gantt.utils.showToast(msg, err); };
   var taskTooltipEl = null;
   var taskTooltipHideTimer = null;
+  var taskTooltipLoadDelayTimer = null;
   var taskTooltipRequestId = 0;
   var taskTooltipDetailsCache = {};
   var activeTaskTooltipAnchor = null;
   var taskTooltipHovered = false;
+  var TOOLTIP_LOAD_DELAY_MS = 280;
   var quickEditPopoverEl = null;
   var quickEditActiveAnchor = null;
   var quickEditActiveUid = null;
@@ -330,6 +332,10 @@ Gantt.table = (function() {
       window.clearTimeout(taskTooltipHideTimer);
       taskTooltipHideTimer = null;
     }
+    if (taskTooltipLoadDelayTimer) {
+      window.clearTimeout(taskTooltipLoadDelayTimer);
+      taskTooltipLoadDelayTimer = null;
+    }
     activeTaskTooltipAnchor = null;
     if (taskTooltipEl) taskTooltipEl.hidden = true;
   }
@@ -406,6 +412,10 @@ Gantt.table = (function() {
   }
 
   function showTaskTooltip(anchor, task) {
+    if (taskTooltipLoadDelayTimer) {
+      window.clearTimeout(taskTooltipLoadDelayTimer);
+      taskTooltipLoadDelayTimer = null;
+    }
     var tooltip = renderTaskTooltip(task, null);
     activeTaskTooltipAnchor = anchor;
     taskTooltipHovered = false;
@@ -416,11 +426,14 @@ Gantt.table = (function() {
     var requestId = ++taskTooltipRequestId;
     tooltip.hidden = false;
     positionTaskTooltip(anchor);
-    loadTaskTooltipDetails(task).then(function(details) {
-      if (!taskTooltipEl || taskTooltipEl.hidden || requestId !== taskTooltipRequestId || activeTaskTooltipAnchor !== anchor) return;
-      renderTaskTooltip(task, details);
-      positionTaskTooltip(anchor);
-    });
+    taskTooltipLoadDelayTimer = window.setTimeout(function() {
+      taskTooltipLoadDelayTimer = null;
+      loadTaskTooltipDetails(task).then(function(details) {
+        if (!taskTooltipEl || taskTooltipEl.hidden || requestId !== taskTooltipRequestId || activeTaskTooltipAnchor !== anchor) return;
+        renderTaskTooltip(task, details);
+        positionTaskTooltip(anchor);
+      });
+    }, TOOLTIP_LOAD_DELAY_MS);
   }
 
   function bindTaskTooltip(anchor, task) {
