@@ -22,6 +22,9 @@ Gantt.table = (function() {
   var quickEditDocumentHandlerBound = false;
   var quickEditKeyHandlerBound = false;
   var quickEditRagRequestId = 0;
+  var quickCommentPopoverEl = null;
+  var quickCommentDocumentHandlerBound = false;
+  var quickCommentKeyHandlerBound = false;
 
   var QUICK_EDIT_LABELS = {
     accountable: 'Accountable',
@@ -70,6 +73,115 @@ Gantt.table = (function() {
       quickEditPopoverEl.hidden = true;
       quickEditPopoverEl.innerHTML = '';
     }
+  }
+
+  function ensureQuickCommentPopover() {
+    if (quickCommentPopoverEl && quickCommentPopoverEl.isConnected) return quickCommentPopoverEl;
+    quickCommentPopoverEl = document.createElement('div');
+    quickCommentPopoverEl.className = 'quick-edit-popover quick-comment-popover';
+    quickCommentPopoverEl.hidden = true;
+    quickCommentPopoverEl.addEventListener('click', function(e) { e.stopPropagation(); });
+    document.body.appendChild(quickCommentPopoverEl);
+    if (!quickCommentDocumentHandlerBound) {
+      document.addEventListener('click', function(e) {
+        if (!quickCommentPopoverEl || quickCommentPopoverEl.hidden) return;
+        if (quickCommentPopoverEl.contains(e.target)) return;
+        var btn = document.querySelector('.btn-quick-comment-row.is-active-quick-comment');
+        if (btn && btn.contains(e.target)) return;
+        closeQuickCommentPopover();
+      });
+      quickCommentDocumentHandlerBound = true;
+    }
+    if (!quickCommentKeyHandlerBound) {
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && quickCommentPopoverEl && !quickCommentPopoverEl.hidden) closeQuickCommentPopover();
+      });
+      quickCommentKeyHandlerBound = true;
+    }
+    return quickCommentPopoverEl;
+  }
+
+  function closeQuickCommentPopover() {
+    var btn = document.querySelector('.btn-quick-comment-row.is-active-quick-comment');
+    if (btn) btn.classList.remove('is-active-quick-comment');
+    if (quickCommentPopoverEl) {
+      quickCommentPopoverEl.hidden = true;
+      quickCommentPopoverEl.innerHTML = '';
+    }
+  }
+
+  function positionQuickCommentPopover(clientX, clientY) {
+    var popover = ensureQuickCommentPopover();
+    if (popover.hidden) return;
+    var popoverRect = popover.getBoundingClientRect();
+    var offset = 12;
+    var top = clientY + offset;
+    var left = clientX + offset;
+    if (left + popoverRect.width > window.innerWidth - 12) left = window.innerWidth - popoverRect.width - 12;
+    if (left < 12) left = 12;
+    if (top + popoverRect.height > window.innerHeight - 12) top = clientY - popoverRect.height - offset;
+    if (top < 12) top = 12;
+    popover.style.position = 'fixed';
+    popover.style.top = top + 'px';
+    popover.style.left = left + 'px';
+  }
+
+  function openQuickCommentPopover(anchor, task, onQuickComment, onRowSelect, clickEvent) {
+    if (!anchor || !task || !onQuickComment) return;
+    closeQuickEditPopover();
+    closeQuickCommentPopover();
+    if (onRowSelect) onRowSelect(task.uid, true);
+    anchor.classList.add('is-active-quick-comment');
+    var clientX = (clickEvent && typeof clickEvent.clientX === 'number') ? clickEvent.clientX : (anchor.getBoundingClientRect().left + anchor.getBoundingClientRect().width / 2);
+    var clientY = (clickEvent && typeof clickEvent.clientY === 'number') ? clickEvent.clientY : (anchor.getBoundingClientRect().top + anchor.getBoundingClientRect().height / 2);
+    var popover = ensureQuickCommentPopover();
+    popover.innerHTML =
+      '<div class="quick-edit-popover-header">' +
+        '<div class="quick-edit-title">Quick comment</div>' +
+        '<div class="quick-edit-task-name">' + escapeHtml(task.name || 'Untitled task') + '</div>' +
+      '</div>' +
+      '<div class="quick-edit-body">' +
+        '<div class="field"><label>Comment</label><textarea data-quick-comment-text placeholder="Add a quick update, note, or decision..." rows="3"></textarea></div>' +
+      '</div>' +
+      '<div class="quick-edit-actions">' +
+        '<button type="button" class="btn btn-ghost" data-quick-comment-cancel>Cancel</button>' +
+        '<button type="button" class="btn btn-primary" data-quick-comment-add>Add</button>' +
+      '</div>';
+    popover.hidden = false;
+    popover.style.visibility = 'hidden';
+    requestAnimationFrame(function() {
+      positionQuickCommentPopover(clientX, clientY);
+      popover.style.visibility = '';
+    });
+    var textarea = popover.querySelector('[data-quick-comment-text]');
+    if (textarea) window.setTimeout(function() { textarea.focus(); }, 0);
+    popover.querySelector('[data-quick-comment-cancel]').addEventListener('click', closeQuickCommentPopover);
+    popover.querySelector('[data-quick-comment-add]').addEventListener('click', function() {
+      var commentText = (textarea && textarea.value || '').trim();
+      if (!commentText) { showToast('Enter comment text', true); return; }
+      var addBtn = popover.querySelector('[data-quick-comment-add]');
+      addBtn.disabled = true;
+      addBtn.textContent = 'Adding...';
+      Promise.resolve(onQuickComment(task.uid, commentText))
+        .then(function() {
+          delete taskTooltipDetailsCache[task.uid];
+          closeQuickCommentPopover();
+          showToast('Comment added');
+        })
+        .catch(function(err) {
+          addBtn.disabled = false;
+          addBtn.textContent = 'Add';
+          showToast((err && err.message) || 'Unable to add comment', true);
+        });
+    });
+    popover.querySelectorAll('textarea').forEach(function(ta) {
+      ta.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          popover.querySelector('[data-quick-comment-add]').click();
+        }
+      });
+    });
   }
 
   function positionQuickEditPopover(clientX, clientY) {
@@ -206,6 +318,7 @@ Gantt.table = (function() {
       return;
     }
     closeQuickEditPopover();
+    closeQuickCommentPopover();
     if (onRowSelect) onRowSelect(task.uid, true);
     quickEditActiveAnchor = anchor;
     quickEditActiveUid = task.uid;
@@ -457,12 +570,13 @@ Gantt.table = (function() {
     return '<button type="button" class="' + classes.join(' ') + '" data-quick-edit="' + escapeHtml(field) + '" data-task-uid="' + escapeHtml(task.uid) + '">' + content + '</button>';
   }
 
-  function render(visibleTree, taskRag, selectedTaskUid, hasChildren, isExpanded, onRowSelect, onToggle, onOpenDetail, onAddSubtask, onQuickEditSave) {
+  function render(visibleTree, taskRag, selectedTaskUid, hasChildren, isExpanded, onRowSelect, onToggle, onOpenDetail, onAddSubtask, onQuickEditSave, onQuickComment) {
     var el = Gantt.state.getEl();
     var isEditable = Gantt.state.isEditMode();
     var bindRagTooltip = Gantt.ragTooltip && Gantt.ragTooltip.bind;
     taskTooltipDetailsCache = {};
     closeQuickEditPopover();
+    closeQuickCommentPopover();
     if (!el.taskTbody) return;
     el.taskTbody.innerHTML = visibleTree.map(function(t) {
       var rag = taskRag[t.uid] || 'none';
@@ -521,7 +635,8 @@ Gantt.table = (function() {
         '<td>' + statusCell + '</td>' +
         '<td>' + progressCell + '</td>' +
         '<td class="task-row-actions">' + (isEditable
-          ? ('<button type="button" class="btn-row-action btn-add-subtask-row" data-uid="' + escapeHtml(t.uid) + '" title="Add subtask">+</button>')
+          ? ('<button type="button" class="btn-row-action btn-add-subtask-row" data-uid="' + escapeHtml(t.uid) + '" title="Add subtask">+</button>' +
+            '<button type="button" class="btn-row-action btn-quick-comment-row" data-uid="' + escapeHtml(t.uid) + '" title="Quick comment" aria-label="Add quick comment">\u{1F4AC}</button>')
           : '') +
         '</td>' +
       '</tr>';
@@ -542,6 +657,18 @@ Gantt.table = (function() {
         if (onAddSubtask) onAddSubtask(uid);
       });
     });
+
+    if (isEditable && onQuickComment) {
+      el.taskTbody.querySelectorAll('.btn-quick-comment-row').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          var uid = btn.getAttribute('data-uid');
+          var task = visibleTree.find(function(t) { return t.uid === uid; });
+          if (!task) return;
+          openQuickCommentPopover(btn, task, onQuickComment, onRowSelect, e);
+        });
+      });
+    }
 
     if (bindRagTooltip) {
       el.taskTbody.querySelectorAll('.rag-tooltip-anchor[data-task-uid]').forEach(function(anchor) {
@@ -573,7 +700,7 @@ Gantt.table = (function() {
 
     el.taskTbody.querySelectorAll('tr').forEach(function(tr) {
       tr.addEventListener('click', function(e) {
-        if (e.target.classList.contains('task-toggle') || e.target.classList.contains('btn-add-subtask-row') || e.target.closest('[data-quick-edit]')) return;
+        if (e.target.classList.contains('task-toggle') || e.target.classList.contains('btn-add-subtask-row') || e.target.classList.contains('btn-quick-comment-row') || e.target.closest('[data-quick-edit]')) return;
         var uid = tr.getAttribute('data-uid');
         el.taskTbody.querySelectorAll('tr').forEach(function(r) { r.classList.remove('selected'); });
         tr.classList.add('selected');
@@ -581,7 +708,7 @@ Gantt.table = (function() {
         if (onRowSelect) onRowSelect(uid);
       });
       tr.addEventListener('dblclick', function(e) {
-        if (e.target.classList.contains('task-toggle') || e.target.classList.contains('btn-add-subtask-row') || e.target.closest('[data-quick-edit]')) return;
+        if (e.target.classList.contains('task-toggle') || e.target.classList.contains('btn-add-subtask-row') || e.target.classList.contains('btn-quick-comment-row') || e.target.closest('[data-quick-edit]')) return;
         var uid = tr.getAttribute('data-uid');
         if (onOpenDetail) onOpenDetail(uid);
       });

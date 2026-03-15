@@ -270,11 +270,12 @@ Gantt.workspace = (function() {
     lockPollTimer = window.setInterval(pollEditLock, 5000);
   }
 
-  function ensureEditAccess(onReady) {
+  function ensureEditAccess(onReady, onDenied) {
     var lock = state.getEditLock();
     var employeeId = state.getEmployeeId();
     if (!state.isEditMode() || !lock.locked || lock.employee_id !== employeeId) {
       showToast('Switch to edit mode to make changes', true);
+      if (onDenied) onDenied();
       return;
     }
     if (employeeId) {
@@ -282,7 +283,10 @@ Gantt.workspace = (function() {
       return;
     }
     promptForEmployeeId(function(value) {
-      if (!value) return;
+      if (!value) {
+        if (onDenied) onDenied();
+        return;
+      }
       state.setEmployeeId(value);
       updateModeUi();
       onReady(value);
@@ -741,7 +745,18 @@ Gantt.workspace = (function() {
             .catch(function(e) { showToast(e.message, true); });
         });
       });
-    }, saveQuickEdit);
+    }, saveQuickEdit, function(taskUid, commentText) {
+      return new Promise(function(resolve, reject) {
+        ensureEditAccess(
+          function(authorId) {
+            api.postComment(taskUid, { author: authorId, comment_text: commentText })
+              .then(function() { refreshAll(); resolve(); })
+              .catch(reject);
+          },
+          function() { reject(new Error('Edit access denied')); }
+        );
+      });
+    });
 
     var isTimelineEdit = state.isTimelineEditMode() && state.isEditMode();
     var lock = state.getEditLock();

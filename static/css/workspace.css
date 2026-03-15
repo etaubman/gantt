@@ -1549,6 +1549,18 @@
   line-height: 1;
 }
 
+.task-table .btn-quick-comment-row {
+  min-width: 28px;
+  padding: 0.42rem 0;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.task-table .btn-quick-comment-row.is-active-quick-comment {
+  background: rgba(97, 168, 255, 0.12);
+  border-color: rgba(97, 168, 255, 0.24);
+}
+
 .task-table .btn-open-task {
   min-width: 46px;
 }
