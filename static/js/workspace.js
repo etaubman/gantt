@@ -774,6 +774,12 @@ Gantt.workspace = (function() {
       });
     }, function(predecessorUid, successorUid) {
       ensureEditAccess(function() {
+        var deps = state.getDependencies();
+        var exists = deps.some(function(d) { return d.predecessor_task_uid === predecessorUid && d.successor_task_uid === successorUid; });
+        if (exists) {
+          showToast('Dependency already exists', true);
+          return;
+        }
         api.postDependency({ predecessor_task_uid: predecessorUid, successor_task_uid: successorUid, dependency_type: 'FS' })
           .then(function() { showToast('Dependency added'); refreshAll(); })
           .catch(function(e) { showToast(e.message, true); });

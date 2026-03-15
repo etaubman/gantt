@@ -2126,6 +2126,12 @@
   display: none !important;
 }
 
+.gantt-dep-dot.gantt-dep-dot-disabled {
+  opacity: 0.35;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
 .gantt-super-tooltip {
   position: fixed;
   z-index: 1200;

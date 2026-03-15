@@ -6,6 +6,7 @@ Gantt.gantt = (function() {
   var escapeHtml = function(s) { return Gantt.utils.escapeHtml(s); };
   var prettyDate = function(d) { return Gantt.utils.prettyDate(d); };
   var titleCaseStatus = function(status) { return Gantt.utils.titleCaseStatus(status); };
+  var showToast = Gantt.utils.showToast;
   var activeTooltip = null;
   var tooltipHideTimer = null;
 
@@ -649,7 +650,7 @@ Gantt.gantt = (function() {
           rightDot.style.top = (ROW_HEIGHT / 2 - 5) + 'px';
           barWrap.appendChild(rightDot);
 
-          setupDependencyDotHandlers(rightDot, row, t.uid, geometryByUid, dependencyOverlay, el.ganttBody, onDependencyCreate, ROW_HEIGHT, DOT_OFFSET, geom.centerY, createSvgEl);
+          setupDependencyDotHandlers(rightDot, row, t.uid, geometryByUid, dependencyOverlay, el.ganttBody, dependencies, onDependencyCreate, ROW_HEIGHT, DOT_OFFSET, geom.centerY, createSvgEl);
         }
 
         var edgeResizeZone = 8;
@@ -797,16 +798,31 @@ Gantt.gantt = (function() {
     el.ganttBody.appendChild(dependencyOverlay);
   }
 
-  function setupDependencyDotHandlers(rightDotEl, sourceRow, taskUid, geometryByUid, overlay, ganttBody, onDependencyCreate, rowHeight, dotOffset, centerY, createSvg) {
+  function setupDependencyDotHandlers(rightDotEl, sourceRow, taskUid, geometryByUid, overlay, ganttBody, dependencies, onDependencyCreate, rowHeight, dotOffset, centerY, createSvg) {
     var drawingFrom = null;
     var tempPath = null;
+
+    function hasDependency(predUid, succUid) {
+      return (dependencies || []).some(function(d) {
+        return d.predecessor_task_uid === predUid && d.successor_task_uid === succUid;
+      });
+    }
 
     function enterDrawingMode() {
       if (ganttBody) ganttBody.classList.add('gantt-drawing-dependency');
       if (sourceRow) sourceRow.classList.add('gantt-dep-draw-source');
+      if (ganttBody && taskUid) {
+        ganttBody.querySelectorAll('.gantt-dep-dot-left[data-uid]').forEach(function(dot) {
+          var succUid = dot.getAttribute('data-uid');
+          if (succUid && succUid !== taskUid && hasDependency(taskUid, succUid)) {
+            dot.classList.add('gantt-dep-dot-disabled');
+          }
+        });
+      }
     }
 
     function exitDrawingMode() {
+      if (ganttBody) ganttBody.querySelectorAll('.gantt-dep-dot-disabled').forEach(function(d) { d.classList.remove('gantt-dep-dot-disabled'); });
       if (ganttBody) ganttBody.classList.remove('gantt-drawing-dependency');
       if (sourceRow) sourceRow.classList.remove('gantt-dep-draw-source');
     }
@@ -866,7 +882,11 @@ Gantt.gantt = (function() {
       }
       exitDrawingMode();
       if (drawingFrom && targetUid) {
-        onDependencyCreate(drawingFrom.uid, targetUid);
+        if (hasDependency(drawingFrom.uid, targetUid)) {
+          showToast('Dependency already exists', true);
+        } else {
+          onDependencyCreate(drawingFrom.uid, targetUid);
+        }
       }
       drawingFrom = null;
     }

@@ -551,9 +551,13 @@ Gantt.detail = (function() {
     });
 
     // Dependencies
+    var succDeps = dependencies.filter(function(d) { return d.successor_task_uid === selectedTaskUid; });
+    var existingPredUids = succDeps.map(function(d) { return d.predecessor_task_uid; });
     var predSelect = document.getElementById('dep-predecessor');
     if (predSelect) {
-      predSelect.innerHTML = '<option value="">Select predecessor</option>' + tasks.filter(function(t) { return t.uid !== selectedTaskUid; }).map(function(t) {
+      predSelect.innerHTML = '<option value="">Select predecessor</option>' + tasks.filter(function(t) {
+        return t.uid !== selectedTaskUid && existingPredUids.indexOf(t.uid) === -1;
+      }).map(function(t) {
         return '<option value="' + escapeHtml(t.uid) + '">' + escapeHtml(t.name) + '</option>';
       }).join('');
     }
@@ -561,6 +565,10 @@ Gantt.detail = (function() {
     if (depAddBtn) depAddBtn.addEventListener('click', function() {
       var pred = predSelect.value;
       if (!pred) { showToast('Select a predecessor', true); return; }
+      if (existingPredUids.indexOf(pred) !== -1) {
+        showToast('Dependency already exists', true);
+        return;
+      }
       var depType = document.getElementById('dep-type').value;
       workspace.ensureEditAccess(function() {
         Gantt.api.postDependency({
@@ -572,7 +580,6 @@ Gantt.detail = (function() {
     });
 
     var depsList = document.getElementById('deps-list');
-    var succDeps = dependencies.filter(function(d) { return d.successor_task_uid === selectedTaskUid; });
     var predDeps = dependencies.filter(function(d) { return d.predecessor_task_uid === selectedTaskUid; });
     var taskNames = {};
     tasks.forEach(function(t) { taskNames[t.uid] = t.name; });
