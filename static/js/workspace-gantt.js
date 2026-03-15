@@ -595,22 +595,18 @@ Gantt.gantt = (function() {
         var DOT_OFFSET = 10;
 
         function updateDotPositions() {
-          if (leftDot) {
-            leftDot.style.left = (barLeft - DOT_OFFSET) + 'px';
-          }
-          if (rightDot) {
-            rightDot.style.left = (barLeft + barWidth + DOT_OFFSET) + 'px';
-          }
+          if (leftDot) leftDot.style.left = (barLeft - DOT_OFFSET) + 'px';
+          if (rightDot) rightDot.style.left = (barLeft + barWidth + DOT_OFFSET) + 'px';
         }
 
         var leftDot = null;
         var rightDot = null;
         if (!isMilestone && taskStart && taskEnd) {
           leftDot = document.createElement('div');
-          leftDot.className = 'gantt-dep-dot gantt-dep-dot-left';
+          leftDot.className = 'gantt-dep-dot gantt-dep-dot-left gantt-dep-dot-target';
           leftDot.setAttribute('data-uid', t.uid);
           leftDot.setAttribute('data-side', 'left');
-          leftDot.title = 'Drag to create dependency (this task as successor)';
+          leftDot.title = 'Drop here to create dependency (this task as successor)';
           leftDot.style.left = (barLeft - DOT_OFFSET) + 'px';
           leftDot.style.top = (ROW_HEIGHT / 2 - 5) + 'px';
           barWrap.appendChild(leftDot);
@@ -624,7 +620,7 @@ Gantt.gantt = (function() {
           rightDot.style.top = (ROW_HEIGHT / 2 - 5) + 'px';
           barWrap.appendChild(rightDot);
 
-          setupDependencyDotHandlers(rightDot, leftDot, t.uid, geometryByUid, dependencyOverlay, onDependencyCreate, ROW_HEIGHT, DOT_OFFSET, geom.centerY, createSvgEl);
+          setupDependencyDotHandlers(rightDot, row, t.uid, geometryByUid, dependencyOverlay, el.ganttBody, onDependencyCreate, ROW_HEIGHT, DOT_OFFSET, geom.centerY, createSvgEl);
         }
 
         var edgeResizeZone = 8;
@@ -643,7 +639,7 @@ Gantt.gantt = (function() {
           if (e.button !== 0) return;
           e.preventDefault();
           e.stopPropagation();
-          if (leftDot && rightDot && (e.target === leftDot || e.target === rightDot)) return;
+          if (rightDot && e.target === rightDot) return;
           if (isUnscheduled) {
             isMoving = true;
             startLeftDateVal = startLeftDateVal || new Date();
@@ -766,9 +762,19 @@ Gantt.gantt = (function() {
     el.ganttBody.appendChild(dependencyOverlay);
   }
 
-  function setupDependencyDotHandlers(rightDotEl, leftDotEl, taskUid, geometryByUid, overlay, onDependencyCreate, rowHeight, dotOffset, centerY, createSvg) {
+  function setupDependencyDotHandlers(rightDotEl, sourceRow, taskUid, geometryByUid, overlay, ganttBody, onDependencyCreate, rowHeight, dotOffset, centerY, createSvg) {
     var drawingFrom = null;
     var tempPath = null;
+
+    function enterDrawingMode() {
+      if (ganttBody) ganttBody.classList.add('gantt-drawing-dependency');
+      if (sourceRow) sourceRow.classList.add('gantt-dep-draw-source');
+    }
+
+    function exitDrawingMode() {
+      if (ganttBody) ganttBody.classList.remove('gantt-drawing-dependency');
+      if (sourceRow) sourceRow.classList.remove('gantt-dep-draw-source');
+    }
 
     rightDotEl.addEventListener('mousedown', function(e) {
       if (e.button !== 0) return;
@@ -777,6 +783,7 @@ Gantt.gantt = (function() {
       var fromGeom = geometryByUid[taskUid];
       if (!fromGeom) return;
       drawingFrom = { uid: taskUid, side: 'right' };
+      enterDrawingMode();
       var startX = fromGeom.left + fromGeom.width + (dotOffset || 0);
       var startY = centerY;
       tempPath = createSvg('path');
@@ -813,14 +820,18 @@ Gantt.gantt = (function() {
       document.removeEventListener('mouseup', onDepDrawEnd);
       if (tempPath && tempPath.parentNode) tempPath.parentNode.removeChild(tempPath);
       tempPath = null;
-      if (!drawingFrom) return;
-      var target = document.elementFromPoint(e.clientX, e.clientY);
-      var leftDot = target && target.closest('.gantt-dep-dot-left');
-      if (leftDot) {
-        var targetUid = leftDot.getAttribute('data-uid');
-        if (targetUid && targetUid !== drawingFrom.uid) {
-          onDependencyCreate(drawingFrom.uid, targetUid);
+      var targetUid = null;
+      if (drawingFrom) {
+        var target = document.elementFromPoint(e.clientX, e.clientY);
+        var leftDot = target && target.closest('.gantt-dep-dot-left');
+        if (leftDot) {
+          var uid = leftDot.getAttribute('data-uid');
+          if (uid && uid !== drawingFrom.uid) targetUid = uid;
         }
+      }
+      exitDrawingMode();
+      if (drawingFrom && targetUid) {
+        onDependencyCreate(drawingFrom.uid, targetUid);
       }
       drawingFrom = null;
     }

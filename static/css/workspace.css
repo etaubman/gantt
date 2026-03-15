@@ -1878,6 +1878,24 @@
   margin-left: -5px;
 }
 
+.gantt-dep-dot-target {
+  display: none;
+  pointer-events: auto;
+}
+
+.gantt-body.gantt-drawing-dependency .gantt-dep-dot-right {
+  display: none !important;
+}
+
+.gantt-body.gantt-drawing-dependency .gantt-dep-dot-target {
+  display: block !important;
+  z-index: 10;
+}
+
+.gantt-body.gantt-drawing-dependency .gantt-row.gantt-dep-draw-source .gantt-dep-dot-target {
+  display: none !important;
+}
+
 .gantt-super-tooltip {
   position: fixed;
   z-index: 1200;
