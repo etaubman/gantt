@@ -665,6 +665,7 @@ Gantt.workspace = (function() {
       .then(function() {
         render();
         setupScrollSync();
+        rerenderDetailIfOpen();
         requestAnimationFrame(function() {
           forceScrollSync();
           if (!hasCenteredInitialView) {
