@@ -185,7 +185,7 @@ Gantt.gantt = (function() {
     incomingArrow.setAttribute('orient', 'auto');
     var incomingArrowPath = createSvgEl('path');
     incomingArrowPath.setAttribute('d', 'M 0 0 L 4 2.5 L 0 5 z');
-    incomingArrowPath.setAttribute('fill', '#f6c453');
+    incomingArrowPath.setAttribute('fill', '#c4b5fd');
     incomingArrow.appendChild(incomingArrowPath);
 
     var outgoingArrow = createSvgEl('marker');
@@ -198,7 +198,7 @@ Gantt.gantt = (function() {
     outgoingArrow.setAttribute('orient', 'auto');
     var outgoingArrowPath = createSvgEl('path');
     outgoingArrowPath.setAttribute('d', 'M 0 0 L 4 2.5 L 0 5 z');
-    outgoingArrowPath.setAttribute('fill', '#77b6ff');
+    outgoingArrowPath.setAttribute('fill', '#a78bfa');
     outgoingArrow.appendChild(outgoingArrowPath);
 
     var incomingDot = createSvgEl('marker');
@@ -211,7 +211,7 @@ Gantt.gantt = (function() {
     incomingDotCircle.setAttribute('cx', '4');
     incomingDotCircle.setAttribute('cy', '4');
     incomingDotCircle.setAttribute('r', '2.5');
-    incomingDotCircle.setAttribute('fill', '#f6c453');
+    incomingDotCircle.setAttribute('fill', '#c4b5fd');
     incomingDot.appendChild(incomingDotCircle);
 
     var outgoingDot = createSvgEl('marker');
@@ -224,7 +224,7 @@ Gantt.gantt = (function() {
     outgoingDotCircle.setAttribute('cx', '4');
     outgoingDotCircle.setAttribute('cy', '4');
     outgoingDotCircle.setAttribute('r', '2.5');
-    outgoingDotCircle.setAttribute('fill', '#77b6ff');
+    outgoingDotCircle.setAttribute('fill', '#a78bfa');
     outgoingDot.appendChild(outgoingDotCircle);
 
     defs.appendChild(incomingArrow);
@@ -788,7 +788,7 @@ Gantt.gantt = (function() {
       var startY = centerY;
       tempPath = createSvg('path');
       tempPath.setAttribute('class', 'gantt-dependency-link gantt-dependency-drawing');
-      tempPath.setAttribute('stroke', '#77b6ff');
+      tempPath.setAttribute('stroke', '#a78bfa');
       tempPath.setAttribute('fill', 'none');
       tempPath.setAttribute('stroke-width', '2.5');
       tempPath.setAttribute('d', 'M ' + startX + ' ' + startY + ' L ' + startX + ' ' + startY);
