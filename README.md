@@ -88,6 +88,23 @@ python -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 - Keep the terminal open while the server is running.
 - If you open a new terminal, reactivate the virtual environment and set `GANTT_DB_PATH` again before starting the server.
 
+## Testing
+
+Backend tests use pytest with a temporary SQLite database (no `GANTT_DB_PATH` needed when running tests).
+
+```powershell
+pip install -r requirements.txt
+python -m pytest tests/ -v
+```
+
+With coverage:
+
+```powershell
+python -m pytest tests/ --cov=backend --cov-report=term-missing
+```
+
+See `tests/` and `conftest.py` for fixtures and coverage of API routes, database, seed data, and Excel export/import.
+
 ## Phase 1 features
 
 - Projects: create, list, open, delete

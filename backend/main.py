@@ -409,14 +409,15 @@ def create_task(project_uid: str, body: TaskCreate, request: Request):
         start_date = body.start_date
         end_date = body.end_date
         if body.parent_task_uid:
-            parent = conn.execute(
+            parent_row = conn.execute(
                 "SELECT uid, project_uid, start_date, end_date FROM tasks WHERE uid = ?", (body.parent_task_uid,)
             ).fetchone()
-            if not parent or parent["project_uid"] != project_uid:
+            if not parent_row or parent_row["project_uid"] != project_uid:
                 raise HTTPException(400, "Parent task must belong to the same project")
+            parent = dict(parent_row)
             if start_date is None and end_date is None and parent.get("start_date"):
                 try:
-                    parent_start = date.fromisoformat(parent["start_date"][:10])
+                    parent_start = date.fromisoformat(str(parent["start_date"])[:10])
                     start_date = parent_start.isoformat()
                     end_date = (parent_start + timedelta(days=7)).isoformat()
                 except (ValueError, TypeError):
