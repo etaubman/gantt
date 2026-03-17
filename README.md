@@ -105,6 +105,25 @@ python -m pytest tests/ --cov=backend --cov-report=term-missing
 
 See `tests/` and `conftest.py` for fixtures and coverage of API routes, database, seed data, and Excel export/import.
 
+## E2E tests (Cucumber + Playwright)
+
+End-to-end tests use Cucumber (Gherkin) and Playwright. **Start the app first** (Docker or uvicorn on port 8000), then run:
+
+```powershell
+npm install
+npm run e2e
+```
+
+- **Base URL**: `http://localhost:8000` (override with `BASE_URL`).
+- **Features**: `e2e/features/*.feature` (workspace, edit lock, task detail, filters, audit/export).
+- **Steps**: `e2e/step_definitions/`. Support and browser lifecycle: `e2e/support/`.
+
+Run in headed mode (see the browser):
+
+```powershell
+$env:CUCUMBER_HEADED = "1"; npm run e2e
+```
+
 ## Phase 1 features
 
 - Projects: create, list, open, delete

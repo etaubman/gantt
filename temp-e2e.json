@@ -1,0 +1,1995 @@
+[
+  {
+    "description": "  As a user I can open the audit log and trigger export.",
+    "elements": [
+      {
+        "description": "",
+        "id": "audit-log-and-export;open-audit-log-modal",
+        "keyword": "Scenario",
+        "line": 4,
+        "name": "Open audit log modal",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 82628500
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 5,
+            "name": "I am on the workspace",
+            "match": {
+              "location": "e2e\\step_definitions\\navigation_steps.js:4"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 237003800
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 6,
+            "name": "the workspace has finished loading",
+            "match": {
+              "location": "e2e\\step_definitions\\navigation_steps.js:8"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 554085500
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 7,
+            "name": "I click \"Audit log\"",
+            "match": {
+              "location": "e2e\\step_definitions\\action_steps.js:4"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 22472300
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 8,
+            "name": "the audit log modal is visible",
+            "match": {
+              "location": "e2e\\step_definitions\\modal_steps.js:69"
+            },
+            "result": {
+              "status": "failed",
+              "duration": 11360200,
+              "error_message": "Error: expect(locator).toBeVisible() failed\n\nLocator: locator('.audit-log-modal.visible, .audit-log-dialog')\nExpected: visible\nError: strict mode violation: locator('.audit-log-modal.visible, .audit-log-dialog') resolved to 2 elements:\n    1) <div tabindex=\"-1\" aria-hidden=\"false\" class=\"task-detail-modal audit-log-modal visible\">…</div> aka locator('div').filter({ hasText: 'Workspace HistoryAudit log×' }).first()\n    2) <div class=\"task-detail-modal-dialog audit-log-dialog\">…</div> aka getByText('Workspace HistoryAudit log×UserAll usersActionAll actionsTaskRefreshLoading')\n\nCall log:\n  - Expect \"to.be.visible\" with timeout 5000ms\n  - waiting for locator('.audit-log-modal.visible, .audit-log-dialog')\n\n    at Proxy.<anonymous> (C:\\DEV\\gantt\\node_modules\\playwright\\lib\\matchers\\expect.js:213:24)\n    at CustomWorld.<anonymous> (C:\\DEV\\gantt\\e2e\\step_definitions\\modal_steps.js:71:23)"
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 9,
+            "name": "the audit log has a list or summary",
+            "match": {
+              "location": "e2e\\step_definitions\\modal_steps.js:74"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 24645999
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "audit-log-and-export;close-audit-log-modal",
+        "keyword": "Scenario",
+        "line": 11,
+        "name": "Close audit log modal",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 77217800
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 12,
+            "name": "I am on the workspace",
+            "match": {
+              "location": "e2e\\step_definitions\\navigation_steps.js:4"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 173539900
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 13,
+            "name": "the workspace has finished loading",
+            "match": {
+              "location": "e2e\\step_definitions\\navigation_steps.js:8"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 544705200
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 14,
+            "name": "I click \"Audit log\"",
+            "match": {
+              "location": "e2e\\step_definitions\\action_steps.js:4"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 33282299
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 15,
+            "name": "the audit log modal is visible",
+            "match": {
+              "location": "e2e\\step_definitions\\modal_steps.js:69"
+            },
+            "result": {
+              "status": "failed",
+              "duration": 8282500,
+              "error_message": "Error: expect(locator).toBeVisible() failed\n\nLocator: locator('.audit-log-modal.visible, .audit-log-dialog')\nExpected: visible\nError: strict mode violation: locator('.audit-log-modal.visible, .audit-log-dialog') resolved to 2 elements:\n    1) <div tabindex=\"-1\" aria-hidden=\"false\" class=\"task-detail-modal audit-log-modal visible\">…</div> aka locator('div').filter({ hasText: 'Workspace HistoryAudit log×' }).first()\n    2) <div class=\"task-detail-modal-dialog audit-log-dialog\">…</div> aka getByText('Workspace HistoryAudit log×UserAll usersActionAll actionsTaskRefreshLoading')\n\nCall log:\n  - Expect \"to.be.visible\" with timeout 5000ms\n  - waiting for locator('.audit-log-modal.visible, .audit-log-dialog')\n\n    at Proxy.<anonymous> (C:\\DEV\\gantt\\node_modules\\playwright\\lib\\matchers\\expect.js:213:24)\n    at CustomWorld.<anonymous> (C:\\DEV\\gantt\\e2e\\step_definitions\\modal_steps.js:71:23)"
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 16,
+            "name": "I close the audit log modal",
+            "match": {
+              "location": "e2e\\step_definitions\\action_steps.js:33"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 17,
+            "name": "the audit log modal is not visible",
+            "match": {
+              "location": "e2e\\step_definitions\\modal_steps.js:79"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 22541199
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "audit-log-and-export;export-excel-button-triggers-action",
+        "keyword": "Scenario",
+        "line": 19,
+        "name": "Export Excel button triggers action",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 74811799
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 20,
+            "name": "I am on the workspace",
+            "match": {
+              "location": "e2e\\step_definitions\\navigation_steps.js:4"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 197041300
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 21,
+            "name": "the workspace has finished loading",
+            "match": {
+              "location": "e2e\\step_definitions\\navigation_steps.js:8"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 549838699
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 22,
+            "name": "I click \"Export Excel\"",
+            "match": {
+              "location": "e2e\\step_definitions\\action_steps.js:4"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 63875399
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 23,
+            "name": "either a download started or the URL contains \"export\" within 5 seconds",
+            "match": {
+              "location": "e2e\\step_definitions\\action_steps.js:50"
+            },
+            "result": {
+              "status": "failed",
+              "duration": 5322483099,
+              "error_message": "Error: expect(received).toBeTruthy()\n\nReceived: false\n    at Proxy.<anonymous> (C:\\DEV\\gantt\\node_modules\\playwright\\lib\\matchers\\expect.js:213:24)\n    at CustomWorld.<anonymous> (C:\\DEV\\gantt\\e2e\\step_definitions\\action_steps.js:59:63)"
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 25624299
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "audit-log-and-export;export-report-button-is-clickable",
+        "keyword": "Scenario",
+        "line": 25,
+        "name": "Export Report button is clickable",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 77210999
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 26,
+            "name": "I am on the workspace",
+            "match": {
+              "location": "e2e\\step_definitions\\navigation_steps.js:4"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 218213100
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 27,
+            "name": "the workspace has finished loading",
+            "match": {
+              "location": "e2e\\step_definitions\\navigation_steps.js:8"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 543972599
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 28,
+            "name": "I click \"Export Report\"",
+            "match": {
+              "location": "e2e\\step_definitions\\action_steps.js:4"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 43565599
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 29,
+            "name": "the \"Export Report\" button is still visible or a download started",
+            "match": {
+              "location": "e2e\\step_definitions\\workspace_steps.js:65"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 3533900
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 57866100
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      }
+    ],
+    "id": "audit-log-and-export",
+    "line": 1,
+    "keyword": "Feature",
+    "name": "Audit log and export",
+    "tags": [],
+    "uri": "e2e\\features\\audit_export.feature"
+  },
+  {
+    "description": "  As a user I can lock the workspace for editing by entering my employee ID.",
+    "elements": [
+      {
+        "description": "",
+        "id": "edit-lock;lock-for-editing-prompts-for-employee-id",
+        "keyword": "Scenario",
+        "line": 4,
+        "name": "Lock for editing prompts for employee ID",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 75465200
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 5,
+            "name": "I am on the workspace",
+            "match": {
+              "location": "e2e\\step_definitions\\navigation_steps.js:4"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 204584199
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 6,
+            "name": "the workspace has finished loading",
+            "match": {
+              "location": "e2e\\step_definitions\\navigation_steps.js:8"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 553196500
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 7,
+            "name": "I click \"Lock for editing\"",
+            "match": {
+              "location": "e2e\\step_definitions\\action_steps.js:4"
+            },
+            "result": {
+              "status": "failed",
+              "duration": 30005158300,
+              "error_message": "Error: function timed out, ensure the promise resolves within 30000 milliseconds\n    at Timeout.<anonymous> (C:\\DEV\\gantt\\node_modules\\@cucumber\\cucumber\\lib\\time.js:64:20)\n    at listOnTimeout (node:internal/timers:594:17)\n    at process.processTimers (node:internal/timers:529:7)"
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 8,
+            "name": "an employee ID modal is visible",
+            "match": {
+              "location": "e2e\\step_definitions\\modal_steps.js:4"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 9,
+            "name": "the employee ID input is visible",
+            "match": {
+              "location": "e2e\\step_definitions\\modal_steps.js:9"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 26095800
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "edit-lock;enter-employee-id-and-acquire-lock",
+        "keyword": "Scenario",
+        "line": 11,
+        "name": "Enter employee ID and acquire lock",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 73910000
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 12,
+            "name": "I am on the workspace",
+            "match": {
+              "location": "e2e\\step_definitions\\navigation_steps.js:4"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 196574699
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 13,
+            "name": "the workspace has finished loading",
+            "match": {
+              "location": "e2e\\step_definitions\\navigation_steps.js:8"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 540191500
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 14,
+            "name": "I click \"Lock for editing\"",
+            "match": {
+              "location": "e2e\\step_definitions\\action_steps.js:4"
+            },
+            "result": {
+              "status": "failed",
+              "duration": 30006415000,
+              "error_message": "Error: function timed out, ensure the promise resolves within 30000 milliseconds\n    at Timeout.<anonymous> (C:\\DEV\\gantt\\node_modules\\@cucumber\\cucumber\\lib\\time.js:64:20)\n    at listOnTimeout (node:internal/timers:594:17)\n    at process.processTimers (node:internal/timers:529:7)"
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 15,
+            "name": "I enter employee ID \"AB12345\"",
+            "match": {
+              "location": "e2e\\step_definitions\\action_steps.js:15"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 16,
+            "name": "I click the modal \"Continue\" button",
+            "match": {
+              "location": "e2e\\step_definitions\\action_steps.js:9"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 17,
+            "name": "the employee ID modal is closed",
+            "match": {
+              "location": "e2e\\step_definitions\\modal_steps.js:13"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 18,
+            "name": "the mode indicator shows \"Editing\" or \"AB12345\"",
+            "result": {
+              "status": "undefined",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 19,
+            "name": "the lock button text is \"Release Lock\" or \"Resume editing\"",
+            "result": {
+              "status": "undefined",
+              "duration": 0
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 22910699
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "edit-lock;cancel-employee-id-modal",
+        "keyword": "Scenario",
+        "line": 21,
+        "name": "Cancel employee ID modal",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 73608800
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 22,
+            "name": "I am on the workspace",
+            "match": {
+              "location": "e2e\\step_definitions\\navigation_steps.js:4"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 219038000
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 23,
+            "name": "the workspace has finished loading",
+            "match": {
+              "location": "e2e\\step_definitions\\navigation_steps.js:8"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 541300300
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 24,
+            "name": "I click \"Lock for editing\"",
+            "match": {
+              "location": "e2e\\step_definitions\\action_steps.js:4"
+            },
+            "result": {
+              "status": "failed",
+              "duration": 30004239900,
+              "error_message": "Error: function timed out, ensure the promise resolves within 30000 milliseconds\n    at Timeout.<anonymous> (C:\\DEV\\gantt\\node_modules\\@cucumber\\cucumber\\lib\\time.js:64:20)\n    at listOnTimeout (node:internal/timers:594:17)\n    at process.processTimers (node:internal/timers:529:7)"
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 25,
+            "name": "an employee ID modal is visible",
+            "match": {
+              "location": "e2e\\step_definitions\\modal_steps.js:4"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 26,
+            "name": "I click the modal \"Cancel\" button",
+            "match": {
+              "location": "e2e\\step_definitions\\action_steps.js:9"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 27,
+            "name": "the employee ID modal is closed",
+            "match": {
+              "location": "e2e\\step_definitions\\modal_steps.js:13"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 28,
+            "name": "the mode indicator shows \"Read only\" or \"Locked by\"",
+            "result": {
+              "status": "undefined",
+              "duration": 0
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 26072800
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "edit-lock;invalid-employee-id-shows-message",
+        "keyword": "Scenario",
+        "line": 30,
+        "name": "Invalid employee ID shows message",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 72772200
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 31,
+            "name": "I am on the workspace",
+            "match": {
+              "location": "e2e\\step_definitions\\navigation_steps.js:4"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 191173799
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 32,
+            "name": "the workspace has finished loading",
+            "match": {
+              "location": "e2e\\step_definitions\\navigation_steps.js:8"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 550693200
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 33,
+            "name": "I click \"Lock for editing\"",
+            "match": {
+              "location": "e2e\\step_definitions\\action_steps.js:4"
+            },
+            "result": {
+              "status": "failed",
+              "duration": 30006992399,
+              "error_message": "Error: function timed out, ensure the promise resolves within 30000 milliseconds\n    at Timeout.<anonymous> (C:\\DEV\\gantt\\node_modules\\@cucumber\\cucumber\\lib\\time.js:64:20)\n    at listOnTimeout (node:internal/timers:594:17)\n    at process.processTimers (node:internal/timers:529:7)"
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 34,
+            "name": "I enter employee ID \"invalid\"",
+            "match": {
+              "location": "e2e\\step_definitions\\action_steps.js:15"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 35,
+            "name": "I click the modal \"Continue\" button",
+            "match": {
+              "location": "e2e\\step_definitions\\action_steps.js:9"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 36,
+            "name": "a toast or message mentions \"AA12345\" or \"format\"",
+            "result": {
+              "status": "undefined",
+              "duration": 0
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 25204400
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      }
+    ],
+    "id": "edit-lock",
+    "line": 1,
+    "keyword": "Feature",
+    "name": "Edit lock",
+    "tags": [],
+    "uri": "e2e\\features\\edit_lock.feature"
+  },
+  {
+    "description": "  As a user I can filter tasks by domain and clear filters.",
+    "elements": [
+      {
+        "description": "",
+        "id": "task-filters;domain-filter-is-present-and-has-options-after-load",
+        "keyword": "Scenario",
+        "line": 4,
+        "name": "Domain filter is present and has options after load",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 75372399
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 5,
+            "name": "I am on the workspace",
+            "match": {
+              "location": "e2e\\step_definitions\\navigation_steps.js:4"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 178448800
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 6,
+            "name": "the workspace has finished loading",
+            "match": {
+              "location": "e2e\\step_definitions\\navigation_steps.js:8"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 547426799
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 7,
+            "name": "the domain filter select is visible",
+            "match": {
+              "location": "e2e\\step_definitions\\workspace_steps.js:52"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 2560700
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 8,
+            "name": "the domain filter has at least \"All domains\" option",
+            "match": {
+              "location": "e2e\\step_definitions\\workspace_steps.js:56"
+            },
+            "result": {
+              "status": "failed",
+              "duration": 5012454700,
+              "error_message": "Error: expect(locator).toBeVisible() failed\n\nLocator:  locator('#domain-filter-select option').filter({ hasText: 'All domains' }).first()\nExpected: visible\nReceived: hidden\nTimeout:  5000ms\n\nCall log:\n  - Expect \"to.be.visible\" with timeout 5000ms\n  - waiting for locator('#domain-filter-select option').filter({ hasText: 'All domains' }).first()\n    9 × locator resolved to <option value=\"all\">All domains</option>\n      - unexpected value \"hidden\"\n\n    at Proxy.<anonymous> (C:\\DEV\\gantt\\node_modules\\playwright\\lib\\matchers\\expect.js:213:24)\n    at CustomWorld.<anonymous> (C:\\DEV\\gantt\\e2e\\step_definitions\\workspace_steps.js:58:29)"
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 23011200
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "task-filters;expand-all-and-collapse-all-buttons-work",
+        "keyword": "Scenario",
+        "line": 10,
+        "name": "Expand all and collapse all buttons work",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 74371199
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 11,
+            "name": "I am on the workspace",
+            "match": {
+              "location": "e2e\\step_definitions\\navigation_steps.js:4"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 186977299
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 12,
+            "name": "the workspace has finished loading",
+            "match": {
+              "location": "e2e\\step_definitions\\navigation_steps.js:8"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 555281599
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 13,
+            "name": "I click \"Expand all\"",
+            "match": {
+              "location": "e2e\\step_definitions\\action_steps.js:4"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 30668900
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 14,
+            "name": "the task table is visible",
+            "match": {
+              "location": "e2e\\step_definitions\\workspace_steps.js:61"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 2313800
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 15,
+            "name": "I click \"Collapse all\"",
+            "match": {
+              "location": "e2e\\step_definitions\\action_steps.js:4"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 43875100
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 16,
+            "name": "the task table is visible",
+            "match": {
+              "location": "e2e\\step_definitions\\workspace_steps.js:61"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 1824200
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 21447199
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "task-filters;clear-filters-button-is-present",
+        "keyword": "Scenario",
+        "line": 18,
+        "name": "Clear filters button is present",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 73980099
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 19,
+            "name": "I am on the workspace",
+            "match": {
+              "location": "e2e\\step_definitions\\navigation_steps.js:4"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 185039799
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 20,
+            "name": "the workspace has finished loading",
+            "match": {
+              "location": "e2e\\step_definitions\\navigation_steps.js:8"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 553507400
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 21,
+            "name": "the \"Clear filters\" button is visible",
+            "match": {
+              "location": "e2e\\step_definitions\\workspace_steps.js:46"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 5201800
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 22,
+            "name": "the filter summary text is visible",
+            "match": {
+              "location": "e2e\\step_definitions\\workspace_steps.js:83"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 3425000
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 22328899
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "task-filters;focus-selected-and-filter-summary",
+        "keyword": "Scenario",
+        "line": 24,
+        "name": "Focus selected and filter summary",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 74008000
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 25,
+            "name": "I am on the workspace",
+            "match": {
+              "location": "e2e\\step_definitions\\navigation_steps.js:4"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 247939799
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 26,
+            "name": "the workspace has finished loading",
+            "match": {
+              "location": "e2e\\step_definitions\\navigation_steps.js:8"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 547660899
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 27,
+            "name": "the task table has at least 1 row",
+            "match": {
+              "location": "e2e\\step_definitions\\workspace_steps.js:17"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 4959499
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 28,
+            "name": "the \"Focus selected\" button is visible",
+            "match": {
+              "location": "e2e\\step_definitions\\workspace_steps.js:46"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 4069699
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 29,
+            "name": "the task filter summary element is visible",
+            "match": {
+              "location": "e2e\\step_definitions\\workspace_steps.js:70"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 1359900
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 20456799
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      }
+    ],
+    "id": "task-filters",
+    "line": 1,
+    "keyword": "Feature",
+    "name": "Task filters",
+    "tags": [],
+    "uri": "e2e\\features\\filters.feature"
+  },
+  {
+    "description": "  As a user I can open and close the task detail modal.",
+    "elements": [
+      {
+        "description": "",
+        "id": "task-detail;open-task-detail-by-double-clicking-a-task-row",
+        "keyword": "Scenario",
+        "line": 4,
+        "name": "Open task detail by double-clicking a task row",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 71591799
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 5,
+            "name": "I am on the workspace",
+            "match": {
+              "location": "e2e\\step_definitions\\navigation_steps.js:4"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 183090400
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 6,
+            "name": "the workspace has finished loading",
+            "match": {
+              "location": "e2e\\step_definitions\\navigation_steps.js:8"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 552873899
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 7,
+            "name": "the task table has at least 1 row",
+            "match": {
+              "location": "e2e\\step_definitions\\workspace_steps.js:17"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 4389599
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 8,
+            "name": "I double-click the first task row",
+            "match": {
+              "location": "e2e\\step_definitions\\action_steps.js:28"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 46780499
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 9,
+            "name": "the task detail modal is visible",
+            "match": {
+              "location": "e2e\\step_definitions\\modal_steps.js:47"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 3831999
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 10,
+            "name": "the modal has a \"Task\" or \"Health\" tab",
+            "result": {
+              "status": "undefined",
+              "duration": 0
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 21208400
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "task-detail;close-task-detail-with-close-button",
+        "keyword": "Scenario",
+        "line": 12,
+        "name": "Close task detail with close button",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 74621299
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 13,
+            "name": "I am on the workspace",
+            "match": {
+              "location": "e2e\\step_definitions\\navigation_steps.js:4"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 198331500
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 14,
+            "name": "the workspace has finished loading",
+            "match": {
+              "location": "e2e\\step_definitions\\navigation_steps.js:8"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 539260999
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 15,
+            "name": "the task table has at least 1 row",
+            "match": {
+              "location": "e2e\\step_definitions\\workspace_steps.js:17"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 4844999
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 16,
+            "name": "I double-click the first task row",
+            "match": {
+              "location": "e2e\\step_definitions\\action_steps.js:28"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 56772799
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 17,
+            "name": "the task detail modal is visible",
+            "match": {
+              "location": "e2e\\step_definitions\\modal_steps.js:47"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 2359400
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 18,
+            "name": "I click the task detail modal close button",
+            "match": {
+              "location": "e2e\\step_definitions\\action_steps.js:20"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 289619400
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 19,
+            "name": "the task detail modal is not visible",
+            "match": {
+              "location": "e2e\\step_definitions\\modal_steps.js:52"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 1613599
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 19451399
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "task-detail;close-task-detail-with-escape",
+        "keyword": "Scenario",
+        "line": 21,
+        "name": "Close task detail with Escape",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 80794200
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 22,
+            "name": "I am on the workspace",
+            "match": {
+              "location": "e2e\\step_definitions\\navigation_steps.js:4"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 226052800
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 23,
+            "name": "the workspace has finished loading",
+            "match": {
+              "location": "e2e\\step_definitions\\navigation_steps.js:8"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 547333400
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 24,
+            "name": "the task table has at least 1 row",
+            "match": {
+              "location": "e2e\\step_definitions\\workspace_steps.js:17"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 5120500
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 25,
+            "name": "I double-click the first task row",
+            "match": {
+              "location": "e2e\\step_definitions\\action_steps.js:28"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 46320100
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 26,
+            "name": "the task detail modal is visible",
+            "match": {
+              "location": "e2e\\step_definitions\\modal_steps.js:47"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 1922900
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 27,
+            "name": "I press the \"Escape\" key",
+            "match": {
+              "location": "e2e\\step_definitions\\action_steps.js:24"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 1659400
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 28,
+            "name": "the task detail modal is not visible",
+            "match": {
+              "location": "e2e\\step_definitions\\modal_steps.js:52"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 1464100
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 23137400
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "task-detail;task-detail-shows-a-title",
+        "keyword": "Scenario",
+        "line": 30,
+        "name": "Task detail shows a title",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 72037100
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 31,
+            "name": "I am on the workspace",
+            "match": {
+              "location": "e2e\\step_definitions\\navigation_steps.js:4"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 208027300
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 32,
+            "name": "the workspace has finished loading",
+            "match": {
+              "location": "e2e\\step_definitions\\navigation_steps.js:8"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 545146700
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 33,
+            "name": "the task table has at least 1 row",
+            "match": {
+              "location": "e2e\\step_definitions\\workspace_steps.js:17"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 4242199
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 34,
+            "name": "I double-click the first task row",
+            "match": {
+              "location": "e2e\\step_definitions\\action_steps.js:28"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 56490899
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 35,
+            "name": "the task detail modal title is not empty",
+            "match": {
+              "location": "e2e\\step_definitions\\modal_steps.js:62"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 3113000
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 20294299
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      }
+    ],
+    "id": "task-detail",
+    "line": 1,
+    "keyword": "Feature",
+    "name": "Task detail",
+    "tags": [],
+    "uri": "e2e\\features\\task_detail.feature"
+  },
+  {
+    "description": "  As a user I can open the app and see the project plan and task list.",
+    "elements": [
+      {
+        "description": "",
+        "id": "workspace;home-page-loads-and-shows-project-title",
+        "keyword": "Scenario",
+        "line": 4,
+        "name": "Home page loads and shows project title",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 73290100
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 5,
+            "name": "I am on the workspace",
+            "match": {
+              "location": "e2e\\step_definitions\\navigation_steps.js:4"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 173614400
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 6,
+            "name": "the page title contains \"Gantt\"",
+            "match": {
+              "location": "e2e\\step_definitions\\workspace_steps.js:4"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 21743400
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 7,
+            "name": "the project heading is visible",
+            "match": {
+              "location": "e2e\\step_definitions\\workspace_steps.js:9"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 11279700
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 8,
+            "name": "the mode indicator is visible",
+            "match": {
+              "location": "e2e\\step_definitions\\workspace_steps.js:13"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 1553899
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 19665599
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "workspace;task-list-loads-after-opening-the-app",
+        "keyword": "Scenario",
+        "line": 10,
+        "name": "Task list loads after opening the app",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 73842399
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 11,
+            "name": "I am on the workspace",
+            "match": {
+              "location": "e2e\\step_definitions\\navigation_steps.js:4"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 192659499
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 12,
+            "name": "the workspace has finished loading",
+            "match": {
+              "location": "e2e\\step_definitions\\navigation_steps.js:8"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 554653599
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 13,
+            "name": "the task table has at least 1 row",
+            "match": {
+              "location": "e2e\\step_definitions\\workspace_steps.js:17"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 4250800
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 14,
+            "name": "the task count badge shows a number",
+            "match": {
+              "location": "e2e\\step_definitions\\workspace_steps.js:24"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 3513299
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 15,
+            "name": "the project meta shows task count",
+            "match": {
+              "location": "e2e\\step_definitions\\workspace_steps.js:31"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 2001699
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 22187299
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "workspace;timeline-panel-is-visible",
+        "keyword": "Scenario",
+        "line": 17,
+        "name": "Timeline panel is visible",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 70907099
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 18,
+            "name": "I am on the workspace",
+            "match": {
+              "location": "e2e\\step_definitions\\navigation_steps.js:4"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 181641600
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 19,
+            "name": "the workspace has finished loading",
+            "match": {
+              "location": "e2e\\step_definitions\\navigation_steps.js:8"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 539123800
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 20,
+            "name": "the timeline panel is visible",
+            "match": {
+              "location": "e2e\\step_definitions\\workspace_steps.js:38"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 2303499
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 21,
+            "name": "the zoom select is visible",
+            "match": {
+              "location": "e2e\\step_definitions\\workspace_steps.js:42"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 1228499
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 22,
+            "name": "the \"Reset view\" button is visible",
+            "match": {
+              "location": "e2e\\step_definitions\\workspace_steps.js:46"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 3857900
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 22999000
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "workspace;header-actions-are-present",
+        "keyword": "Scenario",
+        "line": 24,
+        "name": "Header actions are present",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 72083199
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 25,
+            "name": "I am on the workspace",
+            "match": {
+              "location": "e2e\\step_definitions\\navigation_steps.js:4"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 213108299
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 26,
+            "name": "the \"Lock for editing\" button is visible",
+            "match": {
+              "location": "e2e\\step_definitions\\workspace_steps.js:46"
+            },
+            "result": {
+              "status": "failed",
+              "duration": 5013760600,
+              "error_message": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByRole('button', { name: /Lock for editing/i })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n  - Expect \"to.be.visible\" with timeout 5000ms\n  - waiting for getByRole('button', { name: /Lock for editing/i })\n\n    at Proxy.<anonymous> (C:\\DEV\\gantt\\node_modules\\playwright\\lib\\matchers\\expect.js:213:24)\n    at CustomWorld.<anonymous> (C:\\DEV\\gantt\\e2e\\step_definitions\\workspace_steps.js:49:21)"
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 27,
+            "name": "the \"Audit log\" button is visible",
+            "match": {
+              "location": "e2e\\step_definitions\\workspace_steps.js:46"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 28,
+            "name": "the \"Export Excel\" button is visible",
+            "match": {
+              "location": "e2e\\step_definitions\\workspace_steps.js:46"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 29,
+            "name": "the \"Export Report\" button is visible",
+            "match": {
+              "location": "e2e\\step_definitions\\workspace_steps.js:46"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 21920400
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      }
+    ],
+    "id": "workspace",
+    "line": 1,
+    "keyword": "Feature",
+    "name": "Workspace",
+    "tags": [],
+    "uri": "e2e\\features\\workspace.feature"
+  }
+]

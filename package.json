@@ -1,0 +1,16 @@
+{
+  "name": "gantt-project-manager",
+  "version": "1.0.0",
+  "description": "Gantt project manager - e2e tests",
+  "private": true,
+  "scripts": {
+    "e2e": "cucumber-js",
+    "e2e:headed": "CUCUMBER_HEADED=1 cucumber-js",
+    "e2e:chrome": "BROWSER=chromium cucumber-js"
+  },
+  "devDependencies": {
+    "@cucumber/cucumber": "^11.0.0",
+    "@playwright/test": "^1.49.0",
+    "playwright": "^1.49.0"
+  }
+}
