@@ -795,7 +795,8 @@ Gantt.detail = (function() {
       }
       var depType = document.getElementById('dep-type').value;
       workspace.ensureEditAccess(function() {
-        Gantt.api.postDependency({
+        var projectUid = Gantt.state.getProject() && Gantt.state.getProject().uid;
+        Gantt.api.postDependency(projectUid, {
           predecessor_task_uid: pred,
           successor_task_uid: selectedTaskUid,
           dependency_type: depType

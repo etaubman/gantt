@@ -114,15 +114,30 @@ Gantt.api = (function() {
     return query ? ('?' + query) : '';
   }
 
-  function getProject() {
+  function getProjects() {
+    return requestJson(apiUrl('/api/projects'));
+  }
+
+  function getProject(uid) {
+    if (uid) return requestJson(apiUrl('/api/projects/' + encodeURIComponent(uid)));
     return requestJson(apiUrl('/api/project'));
   }
 
-  function getTasks() {
+  function createProject(body) {
+    return requestJson(apiUrl('/api/projects'), {
+      method: 'POST',
+      headers: buildWriteHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(body || {})
+    });
+  }
+
+  function getTasks(projectUid) {
+    if (projectUid) return requestJson(apiUrl('/api/projects/' + encodeURIComponent(projectUid) + '/tasks'));
     return requestJson(apiUrl('/api/tasks'));
   }
 
-  function getDependencies() {
+  function getDependencies(projectUid) {
+    if (projectUid) return requestJson(apiUrl('/api/projects/' + encodeURIComponent(projectUid) + '/dependencies'));
     return requestJson(apiUrl('/api/dependencies'));
   }
 
@@ -130,7 +145,8 @@ Gantt.api = (function() {
     return requestJson(apiUrl('/api/tasks/' + taskUid + '/rag'));
   }
 
-  function getBulkRag() {
+  function getBulkRag(projectUid) {
+    if (projectUid) return requestJson(apiUrl('/api/projects/' + encodeURIComponent(projectUid) + '/rag'));
     return requestJson(apiUrl('/api/rag'));
   }
 
@@ -182,8 +198,11 @@ Gantt.api = (function() {
     });
   }
 
-  function postTask(payload) {
-    return requestJson(apiUrl('/api/tasks'), {
+  function postTask(projectUid, payload) {
+    var url = projectUid
+      ? apiUrl('/api/projects/' + encodeURIComponent(projectUid) + '/tasks')
+      : apiUrl('/api/tasks');
+    return requestJson(url, {
       method: 'POST',
       headers: buildWriteHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(payload)
@@ -198,8 +217,11 @@ Gantt.api = (function() {
     });
   }
 
-  function postDependency(payload) {
-    return requestJson(apiUrl('/api/dependencies'), {
+  function postDependency(projectUid, payload) {
+    var url = projectUid
+      ? apiUrl('/api/projects/' + encodeURIComponent(projectUid) + '/dependencies')
+      : apiUrl('/api/dependencies');
+    return requestJson(url, {
       method: 'POST',
       headers: buildWriteHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(payload)
@@ -221,11 +243,13 @@ Gantt.api = (function() {
     });
   }
 
-  function exportUrl() {
+  function exportUrl(projectUid) {
+    if (projectUid) return apiUrl('/api/projects/' + encodeURIComponent(projectUid) + '/export');
     return apiUrl('/api/export');
   }
 
-  function exportReportUrl() {
+  function exportReportUrl(projectUid) {
+    if (projectUid) return apiUrl('/api/projects/' + encodeURIComponent(projectUid) + '/export-report');
     return apiUrl('/api/export-report');
   }
 
@@ -260,7 +284,9 @@ Gantt.api = (function() {
   return {
     apiUrl: apiUrl,
     getApiBaseUrl: function() { return API_BASE_URL; },
+    getProjects: getProjects,
     getProject: getProject,
+    createProject: createProject,
     getTasks: getTasks,
     getDependencies: getDependencies,
     getTaskRag: getTaskRag,

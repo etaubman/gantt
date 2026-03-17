@@ -22,14 +22,12 @@ def _now() -> str:
 
 
 def ensure_single_project(conn) -> str:
-    """Ensure the single project exists. Return its uid."""
+    """Ensure at least one project exists. Return default or first project uid."""
     row = conn.execute("SELECT uid FROM projects WHERE uid = ?", (DEFAULT_PROJECT_UID,)).fetchone()
     if row:
-        conn.execute("UPDATE projects SET name = ? WHERE uid = ?", (DEFAULT_PROJECT_NAME, row["uid"]))
         return row["uid"]
     row = conn.execute("SELECT uid FROM projects ORDER BY created_at ASC LIMIT 1").fetchone()
     if row:
-        conn.execute("UPDATE projects SET name = ? WHERE uid = ?", (DEFAULT_PROJECT_NAME, row["uid"]))
         return row["uid"]
     conn.execute(
         "INSERT INTO projects (uid, name, created_at) VALUES (?, ?, ?)",

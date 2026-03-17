@@ -513,19 +513,40 @@ def startup():
 
 @api.get("/projects", response_model=list[ProjectOut])
 def list_projects():
-    """Return the single project (Markets Data Governance) only."""
+    """Return all projects ordered by name."""
     with get_conn() as conn:
-        row = conn.execute("SELECT uid, name, created_at FROM projects WHERE uid = ?", (DEFAULT_PROJECT_UID,)).fetchone()
-        if not row:
-            row = conn.execute("SELECT uid, name, created_at FROM projects LIMIT 1").fetchone()
-        if not row:
-            return []
-        return [ProjectOut(**dict(row))]
+        rows = conn.execute(
+            "SELECT uid, name, created_at FROM projects ORDER BY name ASC"
+        ).fetchall()
+    return [ProjectOut(**dict(r)) for r in rows]
 
 
-@api.post("/projects", response_model=ProjectOut)
-def create_project(body: ProjectCreate):
-    raise HTTPException(400, "Only one project is allowed. Use the existing Markets Data Governance project.")
+@api.post("/projects", response_model=ProjectOut, status_code=201)
+def create_project(body: ProjectCreate, request: Request):
+    """Create a new project. Multiple projects are allowed (do not reject with 'only one project')."""
+    name = (body.name or "").strip()
+    if not name:
+        raise HTTPException(400, "Project name is required")
+    uid = str(uuid.uuid4())
+    now = _now()
+    actor_employee_id = _get_actor_employee_id(request)
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO projects (uid, name, created_at) VALUES (?, ?, ?)",
+            (uid, name, now),
+        )
+        _record_audit_event(
+            conn,
+            actor_employee_id=actor_employee_id,
+            action_type="project_create",
+            entity_type="project",
+            entity_uid=uid,
+            task_uid=None,
+            task_name=None,
+            prior_value=None,
+            new_value={"uid": uid, "name": name, "created_at": now},
+        )
+    return ProjectOut(uid=uid, name=name, created_at=now)
 
 
 @api.get("/projects/{uid}", response_model=ProjectOut)

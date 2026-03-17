@@ -9,7 +9,7 @@ def test_list_projects(client):
     assert r.status_code == 200
     data = r.json()
     assert isinstance(data, list)
-    assert len(data) == 1
+    assert len(data) >= 1
     assert data[0]["uid"] == "markets-data-governance"
     assert "Markets Data Governance" in data[0]["name"]
     assert "created_at" in data[0]
@@ -37,10 +37,14 @@ def test_get_project_not_found(client):
     assert r.status_code == 404
 
 
-def test_create_project_rejected(client):
-    r = client.post("/api/projects", json={"name": "Another"})
-    assert r.status_code == 400
-    assert "only one project" in r.json().get("detail", "").lower() or "only one project" in str(r.json())
+def test_create_project_succeeds(client):
+    """Multiple projects are allowed; creating a new project returns 201."""
+    r = client.post("/api/projects", json={"name": "Another Project"})
+    assert r.status_code == 201
+    data = r.json()
+    assert data["name"] == "Another Project"
+    assert "uid" in data and "created_at" in data
+    assert data["uid"] != "markets-data-governance"
 
 
 def test_delete_default_project_rejected(client, project_uid):

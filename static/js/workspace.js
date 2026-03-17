@@ -11,6 +11,7 @@ Gantt.workspace = (function() {
   var showToast = Gantt.utils.showToast;
   var prettyDate = Gantt.utils.prettyDate;
   var EMPLOYEE_ID_RE = /^[a-zA-Z]{2}[0-9]{5}$/;
+  var PROJECT_UID_KEY = 'gantt-project-uid';
 
   var scrollSyncDone = false;
   var hasCenteredInitialView = false;
@@ -842,22 +843,33 @@ Gantt.workspace = (function() {
         if (meta) meta.textContent = 'Load timed out. Is the server running at ' + getApiLabel() + '?';
       }
     }, LOAD_TIMEOUT_MS);
-    return api.getProject()
-      .then(function(p) {
+    return api.getProjects()
+      .then(function(projects) {
         setServerConnectionState('online');
+        if (!Array.isArray(projects) || !projects.length) {
+          throw new Error('No projects found');
+        }
+        var savedUid = window.localStorage.getItem(PROJECT_UID_KEY);
+        var p = (savedUid && projects.find(function(x) { return x.uid === savedUid; })) || projects[0];
+        window.localStorage.setItem(PROJECT_UID_KEY, p.uid);
         state.setProject(p);
         var el = state.getEl();
-        if (el.projectTitle) el.projectTitle.textContent = p.name || 'Gantt';
+        if (el.projectSelect) {
+          var escapeOpt = function(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
+          el.projectSelect.innerHTML = projects.map(function(proj) {
+            return '<option value="' + escapeOpt(proj.uid) + '"' + (proj.uid === p.uid ? ' selected' : '') + '>' + escapeOpt(proj.name != null ? proj.name : proj.uid) + '</option>';
+          }).join('') + '<option value="__new__">+ New project</option>';
+        }
         var meta = el.projectMeta || document.getElementById('project-meta');
         if (meta) {
           meta.textContent = '';
           meta.classList.remove('load-failed');
         }
-        return api.getTasks();
+        return api.getTasks(p.uid);
       })
       .then(function(t) {
         state.setTasks(Array.isArray(t) ? t : []);
-        return api.getDependencies();
+        return api.getDependencies(state.getProject() && state.getProject().uid ? state.getProject().uid : null);
       })
       .then(function(d) {
         state.setDependencies(Array.isArray(d) ? d : []);
@@ -873,7 +885,7 @@ Gantt.workspace = (function() {
         });
         setLoading(false);
         updateServerIndicatorUi();
-        return api.getBulkRag();
+        return api.getBulkRag(state.getProject() && state.getProject().uid ? state.getProject().uid : null);
       })
       .then(function(bulkRag) {
         var taskRagMap = {};
@@ -994,7 +1006,8 @@ Gantt.workspace = (function() {
           var end = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
           var endDate = end.toISOString().slice(0, 10);
           var payload = { name: name, parent_task_uid: uid, start_date: startDate, end_date: endDate };
-          api.postTask(payload)
+          var projectUid = state.getProject() && state.getProject().uid;
+          api.postTask(projectUid, payload)
             .then(function(createdTask) {
               state.addTask(createdTask);
               showToast('Subtask added');
@@ -1043,7 +1056,8 @@ Gantt.workspace = (function() {
           showToast('Dependency already exists', true);
           return;
         }
-        api.postDependency({ predecessor_task_uid: predecessorUid, successor_task_uid: successorUid, dependency_type: 'FS' })
+        var projectUid = state.getProject() && state.getProject().uid;
+        api.postDependency(projectUid, { predecessor_task_uid: predecessorUid, successor_task_uid: successorUid, dependency_type: 'FS' })
           .then(function(dep) {
             state.addDependency(dep);
             return reloadPlanData();
@@ -1083,6 +1097,35 @@ Gantt.workspace = (function() {
         }
       });
     }
+    var projectSelectEl = el.projectSelect || document.getElementById('project-select');
+    if (projectSelectEl) {
+      projectSelectEl.addEventListener('change', function() {
+        var v = projectSelectEl.value;
+        if (v === '__new__') {
+          var name = window.prompt('New project name');
+          if (!name || !name.trim()) {
+            projectSelectEl.value = (state.getProject() && state.getProject().uid) || '';
+            return;
+          }
+          api.createProject({ name: name.trim() }).then(function(created) {
+            window.localStorage.setItem(PROJECT_UID_KEY, created.uid);
+            refreshAll();
+            showToast('Project created');
+          }).catch(function(e) {
+            showToast((e && e.message) || 'Could not create project', true);
+            projectSelectEl.value = (state.getProject() && state.getProject().uid) || '';
+          });
+          return;
+        }
+        var lock = state.getEditLock();
+        var employeeId = state.getEmployeeId();
+        if (lock && lock.locked && lock.employee_id === employeeId) {
+          releaseLock(employeeId, false).catch(function() { /* ignore; refresh will repoll */ });
+        }
+        window.localStorage.setItem(PROJECT_UID_KEY, v);
+        refreshAll();
+      });
+    }
     var normalizedStoredEmployeeId = normalizeEmployeeId(state.getEmployeeId());
     if (state.getEmployeeId() && !normalizedStoredEmployeeId) {
       state.setEmployeeId('');
@@ -1104,7 +1147,8 @@ Gantt.workspace = (function() {
             var end = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
             var endDate = end.toISOString().slice(0, 10);
             var payload = { name: name, parent_task_uid: null, start_date: startDate, end_date: endDate };
-            api.postTask(payload)
+            var projectUid = state.getProject() && state.getProject().uid;
+            api.postTask(projectUid, payload)
               .then(function(createdTask) {
                 state.addTask(createdTask);
                 showToast('Top-level task added');
@@ -1187,12 +1231,12 @@ Gantt.workspace = (function() {
     var btnExportReport = document.getElementById('btn-export-report');
 
     el.btnExport.addEventListener('click', function() {
-      window.location.href = api.exportUrl();
+      window.location.href = api.exportUrl(state.getProject() && state.getProject().uid);
       showToast('Export started');
     });
     if (btnExportReport) {
       btnExportReport.addEventListener('click', function() {
-        window.location.href = api.exportReportUrl();
+        window.location.href = api.exportReportUrl(state.getProject() && state.getProject().uid);
         showToast('Report export started');
       });
     }

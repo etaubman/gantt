@@ -69,6 +69,7 @@ Gantt.state = (function() {
 
   const el = {
     projectTitle: document.getElementById('project-title'),
+    projectSelect: document.getElementById('project-select'),
     projectMeta: document.getElementById('project-meta'),
     ganttTimelineInner: document.getElementById('gantt-timeline-inner'),
     ganttPanel: document.getElementById('gantt-panel'),

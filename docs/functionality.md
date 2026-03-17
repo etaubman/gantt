@@ -7,7 +7,7 @@ This document outlines every feature and capability of the application, from bac
 ## 1. Application Overview
 
 - **Stack**: FastAPI backend, SQLite database, vanilla JavaScript frontend, static HTML/CSS.
-- **Purpose**: Internal web app for managing a single project (Markets Data Governance) with hierarchical tasks, a Gantt timeline, RAG status, comments, risks, dependencies, and Excel export/import.
+- **Purpose**: Internal web app for managing one or more projects (each with hierarchical tasks), a Gantt timeline, RAG status, comments, risks, dependencies, and Excel export/import. The default seed project is Markets Data Governance.
 - **Entry point**: The main UI is served at `/` (index.html): a workspace with a task table and Gantt panel. `project.html` redirects to `/`.
 
 ---
@@ -22,13 +22,13 @@ This document outlines every feature and capability of the application, from bac
 
 ### 2.2 Projects
 
-- **Single-project model**: The app is built for one project; project UID is not in the main URL.
+- **Multi-project model**: The app supports multiple projects; the UI lets you switch projects and create new ones.
 - **Endpoints**:
-  - `GET /api/projects` — List projects (returns the single project).
-  - `GET /api/project` — Get the single (default) project.
+  - `GET /api/projects` — List all projects (ordered by name).
+  - `GET /api/project` — Get the single (default) project by UID.
   - `GET /api/projects/{uid}` — Get project by UID.
-  - `POST /api/projects` — Rejected with 400 (only one project allowed).
-  - `DELETE /api/projects/{uid}` — Delete project; 400 if uid is the default project.
+  - `POST /api/projects` — Create a new project (body: `{ "name": "..." }`); returns 201 with project.
+  - `DELETE /api/projects/{uid}` — Delete project; 400 if uid is the default project (Markets Data Governance).
 
 ### 2.3 Tasks
 
