@@ -56,6 +56,8 @@ Open [http://localhost:8000](http://localhost:8000) in your browser.
 
 ## Startup seeding
 
+### Default seed
+
 On a fresh database, the app automatically creates the default project and these top-level tasks:
 
 - `Equities`
@@ -69,6 +71,15 @@ On a fresh database, the app automatically creates the default project and these
 
 This seed only runs when the project has no tasks yet. If data already exists, startup will not add them again.
 
+### Optional sample seed (two demo projects)
+
+To start with two realistic sample projects instead (software + event planning), set `GANTT_SAMPLE_SEED=1` and use an **empty** database. The seed creates:
+
+- **Platform Migration — Phase 2** — Software project: discovery, design, development (with backend/frontend/integration and milestones), QA, deployment. Includes dependencies (FS/SS), RAG status, comments, and risks.
+- **Annual Conference 2025** — Event project: venue, program, marketing & registration, catering, day-of execution. Same features: hierarchy, milestones, dependencies, RAG, comments, risks.
+
+The sample seed runs only when there are **no projects** in the database. If `GANTT_SAMPLE_SEED` is not set (or the DB already has data), the default Markets Data Governance seed is used instead.
+
 To reseed with Docker (this **deletes all data** in the volume):
 
 ```powershell
@@ -81,6 +92,15 @@ To reseed locally without Docker:
 ```powershell
 Remove-Item .\data\gantt.db -ErrorAction SilentlyContinue
 $env:GANTT_DB_PATH = ".\data\gantt.db"
+python -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+To run with the **sample seed** (two demo projects):
+
+```powershell
+Remove-Item .\data\gantt.db -ErrorAction SilentlyContinue
+$env:GANTT_DB_PATH = ".\data\gantt.db"
+$env:GANTT_SAMPLE_SEED = "1"
 python -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 ```
 

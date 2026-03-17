@@ -19,6 +19,7 @@ This document outlines every feature and capability of the application, from bac
 - **Database**: SQLite; path from `GANTT_DB_PATH` (default `/data/gantt.db` in Docker, or e.g. `./data/gantt.db` locally).
 - **Schema** (`backend/database.py`): Tables for `projects`, `tasks`, `dependencies`, `rag_statuses`, `comments`, `risks`, `edit_lock`, `audit_events`. Migrations add `path_to_green` on RAG, and `is_milestone`, `is_deleted`, `deleted_at`, `deleted_by` on tasks when missing.
 - **Startup seeding** (`backend/seed_data.py`): Ensures a single project exists (uid `markets-data-governance`, name "Markets Data Governance"). If the project has no tasks, inserts eight top-level tasks: Equities, Commodities, Rates, FX, Markets Operations, Markets Treasury, Spread Products, Other Markets.
+- **Optional sample seed** (`backend/seed_sample_projects.py`): When `GANTT_SAMPLE_SEED=1` (or true/yes) and the database has no projects, creates two realistic sample projects instead of the default: (1) **Platform Migration — Phase 2** (software: discovery, design, development, QA, deployment; with dependencies FS/SS, RAG, comments, risks); (2) **Annual Conference 2025** (event: venue, program, marketing, catering, day-of; same features). Uses all app features including milestones, scheduling_mode (fixed/auto), and dependency types.
 
 ### 2.2 Projects
 

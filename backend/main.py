@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 
 from backend.database import get_conn, init_db
 from backend.seed_data import DEFAULT_PROJECT_UID, ensure_single_project_and_seed
+from backend.seed_sample_projects import run_sample_seed_if_enabled
 
 app = FastAPI(title="Gantt Project Manager")
 app.add_middleware(
@@ -508,7 +509,10 @@ def startup():
     from backend.database import DB_PATH
     print(f"[Gantt] Database: {DB_PATH}", flush=True)
     init_db()
-    ensure_single_project_and_seed()
+    if run_sample_seed_if_enabled():
+        print("[Gantt] Sample seed enabled: two sample projects loaded.", flush=True)
+    else:
+        ensure_single_project_and_seed()
 
 
 @api.get("/projects", response_model=list[ProjectOut])
