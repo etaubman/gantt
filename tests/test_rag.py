@@ -112,3 +112,29 @@ def test_rag_green_no_rationale_required(client, seed_task_uids):
         json={"status": "green", "rationale": ""},
     )
     assert r.status_code == 200
+
+
+def test_list_rag_bulk_empty(client):
+    r = client.get("/api/rag")
+    assert r.status_code == 200
+    assert r.json() == {}
+
+
+def test_list_rag_bulk_returns_all_task_rag(client, seed_task_uids):
+    uid1, uid2 = seed_task_uids[0], seed_task_uids[1]
+    client.post(f"/api/tasks/{uid1}/rag", json={"status": "green"})
+    client.post(
+        f"/api/tasks/{uid1}/rag",
+        json={"status": "amber", "rationale": "Update"},
+    )
+    client.post(f"/api/tasks/{uid2}/rag", json={"status": "red", "rationale": "Blocked"})
+    r = client.get("/api/rag")
+    assert r.status_code == 200
+    data = r.json()
+    assert uid1 in data
+    assert uid2 in data
+    assert len(data[uid1]) == 2
+    assert data[uid1][0]["status"] == "green"
+    assert data[uid1][1]["status"] == "amber"
+    assert len(data[uid2]) == 1
+    assert data[uid2][0]["status"] == "red"

@@ -407,7 +407,11 @@ Gantt.gantt = (function() {
     positionTooltip(tooltip, event);
   }
 
-  function render(tree, taskRag, selectedTaskUid, onTaskSelect, onTaskOpenDetail, isTimelineEdit, onTaskDateChange, onDependencyCreate) {
+  function render(tree, treeToRender, viewport, taskRag, selectedTaskUid, onTaskSelect, onTaskOpenDetail, isTimelineEdit, onTaskDateChange, onDependencyCreate) {
+    if (typeof viewport !== 'object' || viewport === null) {
+      viewport = null;
+      treeToRender = tree;
+    }
     var el = Gantt.state.getEl();
     var c = Gantt.state.getConstants();
     var basePxPerDay = c.PX_PER_DAY;
@@ -490,13 +494,26 @@ Gantt.gantt = (function() {
     el.ganttBody.style.setProperty('--gantt-row-height', ROW_HEIGHT + 'px');
     el.ganttBody.innerHTML = '';
     el.ganttBody.style.minWidth = totalWidth + 'px';
+    var totalBodyHeight = tree.length * ROW_HEIGHT;
+    el.ganttBody.style.minHeight = totalBodyHeight + 'px';
     var bodyWeekend = document.createElement('div');
     bodyWeekend.className = 'gantt-weekend-overlay';
     bodyWeekend.style.background = weekendGradient;
     el.ganttBody.appendChild(bodyWeekend);
     var geometryByUid = {};
     var dependencyOverlay = buildDependencyOverlay(totalWidth, Math.max(tree.length * ROW_HEIGHT, ROW_HEIGHT));
-    tree.forEach(function(t, index) {
+    var rowFragment = document.createDocumentFragment();
+    var totalRows = tree.length;
+    var rowsToRender = treeToRender || tree;
+    if (viewport && viewport.start > 0) {
+      var topSpacer = document.createElement('div');
+      topSpacer.className = 'gantt-virtual-spacer';
+      topSpacer.style.height = (viewport.start * ROW_HEIGHT) + 'px';
+      topSpacer.style.minHeight = (viewport.start * ROW_HEIGHT) + 'px';
+      rowFragment.appendChild(topSpacer);
+    }
+    rowsToRender.forEach(function(t, idx) {
+      var index = viewport ? viewport.start + idx : idx;
       var progress = Math.max(0, Math.min(100, t.progress != null ? t.progress : 0));
       var rag = taskRag[t.uid] || 'none';
       var isMilestone = !!t.is_milestone;
@@ -796,9 +813,17 @@ Gantt.gantt = (function() {
         bar.style.cursor = 'grab';
       }
 
-      el.ganttBody.appendChild(row);
+      rowFragment.appendChild(row);
     });
+    if (viewport && viewport.end < viewport.total) {
+      var bottomSpacer = document.createElement('div');
+      bottomSpacer.className = 'gantt-virtual-spacer';
+      bottomSpacer.style.height = ((viewport.total - viewport.end) * ROW_HEIGHT) + 'px';
+      bottomSpacer.style.minHeight = ((viewport.total - viewport.end) * ROW_HEIGHT) + 'px';
+      rowFragment.appendChild(bottomSpacer);
+    }
 
+    el.ganttBody.appendChild(rowFragment);
     el.ganttBody.appendChild(dependencyOverlay);
   }
 

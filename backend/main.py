@@ -811,6 +811,53 @@ def _delete_task_recursive(conn, uid: str):
 
 # --- RAG ---
 
+
+@app.get("/api/rag")
+def list_rag_bulk():
+    """Return RAG history for all tasks in the default project. Response: { task_uid: [rag_entries] }."""
+    with get_conn() as conn:
+        cur = conn.execute(
+            """SELECT r.uid, r.task_uid, r.status, r.rationale, r.path_to_green, r.created_at
+               FROM rag_statuses r
+               INNER JOIN tasks t ON t.uid = r.task_uid AND t.project_uid = ? AND COALESCE(t.is_deleted, 0) = 0
+               ORDER BY r.task_uid, r.created_at ASC""",
+            (DEFAULT_PROJECT_UID,),
+        )
+        rows = cur.fetchall()
+    result = {}
+    for row in rows:
+        d = dict(row)
+        tid = d.pop("task_uid")
+        if tid not in result:
+            result[tid] = []
+        result[tid].append(d)
+    return result
+
+
+@app.get("/api/projects/{project_uid}/rag")
+def list_rag_bulk_by_project(project_uid: str):
+    """Return RAG history for all tasks in a project. Response: { task_uid: [rag_entries] }."""
+    with get_conn() as conn:
+        if conn.execute("SELECT uid FROM projects WHERE uid = ?", (project_uid,)).fetchone() is None:
+            raise HTTPException(404, "Project not found")
+        cur = conn.execute(
+            """SELECT r.uid, r.task_uid, r.status, r.rationale, r.path_to_green, r.created_at
+               FROM rag_statuses r
+               INNER JOIN tasks t ON t.uid = r.task_uid AND t.project_uid = ? AND COALESCE(t.is_deleted, 0) = 0
+               ORDER BY r.task_uid, r.created_at ASC""",
+            (project_uid,),
+        )
+        rows = cur.fetchall()
+    result = {}
+    for row in rows:
+        d = dict(row)
+        tid = d.pop("task_uid")
+        if tid not in result:
+            result[tid] = []
+        result[tid].append(d)
+    return result
+
+
 @app.get("/api/tasks/{task_uid}/rag")
 def list_rag(task_uid: str):
     with get_conn() as conn:

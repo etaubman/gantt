@@ -573,7 +573,7 @@ Gantt.table = (function() {
     return '<button type="button" class="' + classes.join(' ') + '" data-quick-edit="' + escapeHtml(field) + '" data-task-uid="' + escapeHtml(task.uid) + '">' + content + '</button>';
   }
 
-  function render(visibleTree, taskRag, selectedTaskUid, hasChildren, isExpanded, onRowSelect, onToggle, onOpenDetail, onAddSubtask, onQuickEditSave, onQuickComment) {
+  function render(visibleTree, treeToRender, viewport, taskRag, selectedTaskUid, hasChildren, isExpanded, onRowSelect, onToggle, onOpenDetail, onAddSubtask, onQuickEditSave, onQuickComment) {
     var el = Gantt.state.getEl();
     var isEditable = Gantt.state.isEditMode();
     var bindRagTooltip = Gantt.ragTooltip && Gantt.ragTooltip.bind;
@@ -581,7 +581,14 @@ Gantt.table = (function() {
     closeQuickEditPopover();
     closeQuickCommentPopover();
     if (!el.taskTbody) return;
-    el.taskTbody.innerHTML = visibleTree.map(function(t) {
+    var rowHeight = Gantt.state.getConstants().ROW_HEIGHT;
+    var rowsSource = treeToRender || visibleTree;
+    var spacerHtml = function(h) {
+      return '<tr class="virtual-spacer" aria-hidden="true"><td colspan="9" style="height:' + h + 'px;padding:0;border:none;line-height:0"></td></tr>';
+    };
+    var topSpacer = viewport && viewport.start > 0 ? [spacerHtml(viewport.start * rowHeight)] : [];
+    var bottomSpacer = viewport && viewport.end < viewport.total ? [spacerHtml((viewport.total - viewport.end) * rowHeight)] : [];
+    var rowHtmls = topSpacer.concat(rowsSource.map(function(t) {
       var rag = taskRag[t.uid] || 'none';
       var milestoneMarker = t.is_milestone ? '<span class="task-milestone-marker" aria-hidden="true"></span>' : '';
       var indent = 'indent-' + Math.min(t.depth, 3);
@@ -619,7 +626,7 @@ Gantt.table = (function() {
         '<span class="table-progress-value">' + progress + '%</span>' +
       '</div>';
       if (isEditable) progressCell = renderQuickEditCell(t, 'progress', progressCell, 'quick-edit-progress-trigger');
-      return '<tr data-uid="' + escapeHtml(t.uid) + '" class="' + rowClasses.join(' ') + '">' +
+      return '<tr data-uid="' + escapeHtml(t.uid) + '" class="' + rowClasses.join(' ') + '" tabindex="-1" role="row">' +
         '<td>' +
           '<div class="task-cell-shell">' +
             '<span class="task-hierarchy-number">' + escapeHtml(hierarchyNumber) + '</span>' +
@@ -644,7 +651,15 @@ Gantt.table = (function() {
           : '') +
         '</td>' +
       '</tr>';
-    }).join('');
+    })).concat(bottomSpacer);
+    var frag = document.createDocumentFragment();
+    var temp = document.createElement('tbody');
+    rowHtmls.forEach(function(html) {
+      temp.innerHTML = html;
+      while (temp.firstChild) frag.appendChild(temp.firstChild);
+    });
+    el.taskTbody.innerHTML = '';
+    el.taskTbody.appendChild(frag);
 
     el.taskTbody.querySelectorAll('.task-toggle[data-has-children="1"]').forEach(function(span) {
       span.addEventListener('click', function(e) {

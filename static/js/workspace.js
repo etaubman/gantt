@@ -18,19 +18,62 @@ Gantt.workspace = (function() {
   var hasShownLockLostToast = false;
   var hasShownLockPollErrorToast = false;
   var serverConnectionState = 'unknown';
+  var scrollSyncRafScheduled = false;
+  var VIRTUAL_THRESHOLD = 60;
+  var VIRTUAL_BUFFER = 12;
+  var virtualScrollRafScheduled = false;
+  var lastVisibleTreeLength = 0;
+  function getViewport(visibleTreeLength) {
+    if (visibleTreeLength <= VIRTUAL_THRESHOLD) return null;
+    var el = state.getEl();
+    if (!el.taskTableWrap) return null;
+    var rowHeight = state.getConstants().ROW_HEIGHT;
+    var scrollTop = el.taskTableWrap.scrollTop;
+    var clientHeight = el.taskTableWrap.clientHeight;
+    var visibleStart = Math.floor(scrollTop / rowHeight);
+    var visibleEnd = Math.ceil((scrollTop + clientHeight) / rowHeight);
+    var start = Math.max(0, visibleStart - VIRTUAL_BUFFER);
+    var end = Math.min(visibleTreeLength, visibleEnd + VIRTUAL_BUFFER);
+    return { start: start, end: end, total: visibleTreeLength };
+  }
+  function scheduleVirtualScrollRender() {
+    if (virtualScrollRafScheduled) return;
+    virtualScrollRafScheduled = true;
+    requestAnimationFrame(function() {
+      virtualScrollRafScheduled = false;
+      render();
+    });
+  }
+  var filterRenderDebounceTimer = null;
+  var FILTER_DEBOUNCE_MS = 180;
+  function debouncedFilterRender() {
+    if (filterRenderDebounceTimer) window.clearTimeout(filterRenderDebounceTimer);
+    filterRenderDebounceTimer = window.setTimeout(function() {
+      filterRenderDebounceTimer = null;
+      render();
+    }, FILTER_DEBOUNCE_MS);
+  }
   function syncVerticalScroll() {
     var el = state.getEl();
     if (!el.taskTableWrap || !el.ganttBody || !el.ganttBodyViewport) return;
     var top = el.taskTableWrap.scrollTop;
     el.ganttBody.style.transform = 'translateY(' + (-top) + 'px)';
   }
+  function syncFromTaskThrottled() {
+    if (scrollSyncRafScheduled) return;
+    scrollSyncRafScheduled = true;
+    requestAnimationFrame(function() {
+      scrollSyncRafScheduled = false;
+      syncVerticalScroll();
+    });
+  }
   function setupScrollSync() {
     var el = state.getEl();
     if (scrollSyncDone || !el.taskTableWrap || !el.ganttScrollWrap) return;
-    function syncFromTask() {
-      syncVerticalScroll();
-    }
-    el.taskTableWrap.addEventListener('scroll', syncFromTask);
+    el.taskTableWrap.addEventListener('scroll', function() {
+      syncFromTaskThrottled();
+      if (lastVisibleTreeLength > VIRTUAL_THRESHOLD) scheduleVirtualScrollRender();
+    });
     el.ganttScrollWrap.addEventListener('wheel', function(e) {
       if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
       e.preventDefault();
@@ -221,7 +264,7 @@ Gantt.workspace = (function() {
   function rerenderDetailIfOpen() {
     var el = state.getEl();
     if (el.taskDetailModal && el.taskDetailModal.classList.contains('visible')) {
-      detail.renderDetail(refreshAll);
+      detail.renderDetail({ mergeAndRender: mergeAndRender, refreshAll: refreshAll });
     }
   }
 
@@ -264,11 +307,20 @@ Gantt.workspace = (function() {
     }
   }
 
+  var LOCK_POLL_FAST_MS = 5000;
+  var LOCK_POLL_SLOW_MS = 25000;
   function pollEditLock() {
     return api.getEditLock()
       .then(function(lock) {
         hasShownLockPollErrorToast = false;
         applyLockState(lock);
+        var hasOurLock = lock && lock.locked && lock.employee_id === state.getEmployeeId();
+        if (lockPollTimer) {
+          window.clearInterval(lockPollTimer);
+          lockPollTimer = null;
+        }
+        var interval = hasOurLock ? LOCK_POLL_FAST_MS : LOCK_POLL_SLOW_MS;
+        lockPollTimer = window.setInterval(pollEditLock, interval);
       })
       .catch(function(e) {
         if (e && e.status && !e.isConnectionError && !hasShownLockPollErrorToast) {
@@ -281,7 +333,6 @@ Gantt.workspace = (function() {
   function startLockPolling() {
     if (lockPollTimer) return;
     pollEditLock();
-    lockPollTimer = window.setInterval(pollEditLock, 5000);
   }
 
   function ensureEditAccess(onReady, onDenied) {
@@ -603,32 +654,40 @@ Gantt.workspace = (function() {
   function openTaskDetail(uid) {
     setSelectedTask(uid);
     render();
-    detail.renderDetail(refreshAll);
-  }
-
-  function replaceTaskInState(updatedTask) {
-    var tasks = state.getTasks().map(function(task) {
-      return task.uid === updatedTask.uid ? updatedTask : task;
-    });
-    state.setTasks(tasks);
+    detail.renderDetail({ mergeAndRender: mergeAndRender, refreshAll: refreshAll });
   }
 
   function saveQuickEdit(task, field, values) {
+    var prevTask = null;
+    var prevRag = null;
     if (field === 'rag') {
+      prevRag = state.getTaskRag()[task.uid];
+      state.mergeTaskRag(task.uid, values.status);
+      mergeAndRender();
       return api.postRag(task.uid, values).then(function(rag) {
-        var taskRag = Object.assign({}, state.getTaskRag());
-        taskRag[task.uid] = rag.status;
-        state.setTaskRag(taskRag);
+        state.mergeTaskRag(task.uid, rag.status);
         showToast('RAG updated');
-        render();
+        mergeAndRender();
         return rag;
+      }).catch(function(e) {
+        state.mergeTaskRag(task.uid, prevRag || null);
+        mergeAndRender();
+        showToast(e.message || 'Unable to save RAG', true);
       });
     }
+    prevTask = state.getTasks().find(function(t) { return t.uid === task.uid; });
+    if (prevTask) prevTask = Object.assign({}, prevTask);
+    state.mergeTask(Object.assign({}, task, values));
+    mergeAndRender();
     return api.patchTask(task.uid, values).then(function(updatedTask) {
-      replaceTaskInState(updatedTask);
+      state.mergeTask(updatedTask);
       showToast((field === 'progress' ? 'Progress' : 'Task') + ' updated');
-      render();
+      mergeAndRender();
       return updatedTask;
+    }).catch(function(e) {
+      if (prevTask) state.mergeTask(prevTask);
+      mergeAndRender();
+      showToast(e.message || 'Unable to save', true);
     });
   }
 
@@ -672,20 +731,9 @@ Gantt.workspace = (function() {
       })
       .then(function(d) {
         state.setDependencies(d);
-        var tasks = state.getTasks();
-        var taskRagMap = {};
-        return Promise.all(tasks.map(function(task) {
-          return api.getTaskRag(task.uid).then(function(rag) {
-            if (rag.length) taskRagMap[task.uid] = rag[rag.length - 1].status;
-          });
-        })).then(function() {
-          state.setTaskRag(taskRagMap);
-        });
-      })
-      .then(function() {
+        state.setTaskRag({});
         render();
         setupScrollSync();
-        rerenderDetailIfOpen();
         requestAnimationFrame(function() {
           forceScrollSync();
           if (!hasCenteredInitialView) {
@@ -693,6 +741,27 @@ Gantt.workspace = (function() {
             hasCenteredInitialView = true;
           }
         });
+        setLoading(false);
+        return api.getBulkRag();
+      })
+      .then(function(bulkRag) {
+        var taskRagMap = {};
+        if (bulkRag && typeof bulkRag === 'object') {
+          Object.keys(bulkRag).forEach(function(taskUid) {
+            var rag = bulkRag[taskUid];
+            if (rag && rag.length) {
+              taskRagMap[taskUid] = rag[rag.length - 1].status;
+              if (Gantt.ragTooltip && Gantt.ragTooltip.setCache) {
+                Gantt.ragTooltip.setCache(taskUid, rag);
+              }
+            }
+          });
+        }
+        state.setTaskRag(taskRagMap);
+        render();
+        setupScrollSync();
+        rerenderDetailIfOpen();
+        requestAnimationFrame(forceScrollSync);
       })
       .catch(function(e) {
         var msg = (e && (e.message || (e.data && (e.data.message || (e.data.detail && (typeof e.data.detail === 'string' ? e.data.detail : e.data.detail.message)))))) || 'Load failed';
@@ -705,6 +774,13 @@ Gantt.workspace = (function() {
       .finally(function() {
         setLoading(false);
       });
+  }
+
+  function mergeAndRender() {
+    render();
+    setupScrollSync();
+    rerenderDetailIfOpen();
+    requestAnimationFrame(forceScrollSync);
   }
 
   function render() {
@@ -740,7 +816,13 @@ Gantt.workspace = (function() {
     updateWorkspaceMeta(visibleTree, selectedTaskUid);
     updateModeUi();
 
-    table.render(visibleTree, taskRag, selectedTaskUid, hasChildren, function(uid) {
+    lastVisibleTreeLength = visibleTree.length;
+    var viewport = getViewport(visibleTree.length);
+    var treeToRender = viewport
+      ? visibleTree.slice(viewport.start, viewport.end)
+      : visibleTree;
+
+    table.render(visibleTree, treeToRender, viewport, taskRag, selectedTaskUid, hasChildren, function(uid) {
       return focusState.focusTask ? true : state.isExpanded(uid);
     }, function(uid) {
       setSelectedTask(uid);
@@ -762,7 +844,11 @@ Gantt.workspace = (function() {
           var endDate = end.toISOString().slice(0, 10);
           var payload = { name: name, parent_task_uid: uid, start_date: startDate, end_date: endDate };
           api.postTask(payload)
-            .then(function() { showToast('Subtask added'); refreshAll(); })
+            .then(function(createdTask) {
+              state.addTask(createdTask);
+              showToast('Subtask added');
+              mergeAndRender();
+            })
             .catch(function(e) { showToast(e.message, true); });
         });
       });
@@ -771,7 +857,7 @@ Gantt.workspace = (function() {
         ensureEditAccess(
           function(authorId) {
             api.postComment(taskUid, { author: authorId, comment_text: commentText })
-              .then(function() { refreshAll(); resolve(); })
+              .then(function() { mergeAndRender(); resolve(); })
               .catch(reject);
           },
           function() { reject(new Error('Edit access denied')); }
@@ -782,7 +868,7 @@ Gantt.workspace = (function() {
     var isTimelineEdit = state.isTimelineEditMode() && state.isEditMode();
     var lock = state.getEditLock();
     var hasEditLock = lock && lock.locked && lock.employee_id === state.getEmployeeId();
-    gantt.render(visibleTree, taskRag, selectedTaskUid, function(uid) {
+    gantt.render(visibleTree, treeToRender, viewport, taskRag, selectedTaskUid, function(uid) {
       setSelectedTask(uid);
       render();
     }, function(uid) {
@@ -790,7 +876,11 @@ Gantt.workspace = (function() {
     }, isTimelineEdit && hasEditLock, function(taskUid, startDate, endDate) {
       ensureEditAccess(function() {
         api.patchTask(taskUid, { start_date: startDate, end_date: endDate })
-          .then(function() { showToast('Dates updated'); refreshAll(); })
+          .then(function(updatedTask) {
+            state.mergeTask(updatedTask);
+            showToast('Dates updated');
+            mergeAndRender();
+          })
           .catch(function(e) { showToast(e.message, true); });
       });
     }, function(predecessorUid, successorUid) {
@@ -802,7 +892,11 @@ Gantt.workspace = (function() {
           return;
         }
         api.postDependency({ predecessor_task_uid: predecessorUid, successor_task_uid: successorUid, dependency_type: 'FS' })
-          .then(function() { showToast('Dependency added'); refreshAll(); })
+          .then(function(dep) {
+            state.addDependency(dep);
+            showToast('Dependency added');
+            mergeAndRender();
+          })
           .catch(function(e) { showToast(e.message, true); });
       });
     });
@@ -837,7 +931,11 @@ Gantt.workspace = (function() {
             var endDate = end.toISOString().slice(0, 10);
             var payload = { name: name, parent_task_uid: null, start_date: startDate, end_date: endDate };
             api.postTask(payload)
-              .then(function() { showToast('Top-level task added'); refreshAll(); })
+              .then(function(createdTask) {
+                state.addTask(createdTask);
+                showToast('Top-level task added');
+                mergeAndRender();
+              })
               .catch(function(e) { showToast(e.message, true); });
           });
         });
@@ -862,31 +960,31 @@ Gantt.workspace = (function() {
     if (el.domainFilterSelect) {
       el.domainFilterSelect.addEventListener('change', function() {
         state.setSelectedDomainUid(el.domainFilterSelect.value || 'all');
-        render();
+        debouncedFilterRender();
       });
     }
     if (el.accountableFilterSelect) {
       el.accountableFilterSelect.addEventListener('change', function() {
         state.setSelectedAccountable(el.accountableFilterSelect.value || 'all');
-        render();
+        debouncedFilterRender();
       });
     }
     if (el.responsibleFilterSelect) {
       el.responsibleFilterSelect.addEventListener('change', function() {
         state.setSelectedResponsible(el.responsibleFilterSelect.value || 'all');
-        render();
+        debouncedFilterRender();
       });
     }
     if (el.ragFilterSelect) {
       el.ragFilterSelect.addEventListener('change', function() {
         state.setSelectedRag(el.ragFilterSelect.value || 'all');
-        render();
+        debouncedFilterRender();
       });
     }
     if (el.statusFilterSelect) {
       el.statusFilterSelect.addEventListener('change', function() {
         state.setSelectedStatus(el.statusFilterSelect.value || 'all');
-        render();
+        debouncedFilterRender();
       });
     }
     if (el.btnClearFilters) {
@@ -956,6 +1054,49 @@ Gantt.workspace = (function() {
         if (e.key === 'Escape' && el.taskDetailModal.classList.contains('visible')) detail.closeTaskModal();
       });
     }
+
+    document.addEventListener('keydown', function(e) {
+      var active = document.activeElement;
+      if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT' || active.isContentEditable)) return;
+      if (el.taskDetailModal && el.taskDetailModal.classList.contains('visible')) return;
+      if (active && el.taskDetailModal && el.taskDetailModal.contains(active)) return;
+      var tasks = state.getTasks();
+      var tree = state.buildTaskTree(tasks);
+      var filteredTree = getFilteredTree(tree);
+      var focusState = getFocusTree(filteredTree);
+      var focusTree = focusState.tree;
+      var visibleTree = focusState.focusTask ? focusTree : state.getVisibleTree(focusTree);
+      if (!visibleTree.length) return;
+      var selectedUid = state.getSelectedTaskUid();
+      var idx = selectedUid ? visibleTree.findIndex(function(t) { return t.uid === selectedUid; }) : -1;
+      if (e.key === 'ArrowDown' && idx < visibleTree.length - 1) {
+        e.preventDefault();
+        var nextUid = visibleTree[idx + 1].uid;
+        setSelectedTask(nextUid);
+        render();
+        requestAnimationFrame(function() {
+          centerSelectedTaskRow();
+          var row = el.taskTbody && el.taskTbody.querySelector('tr[data-uid="' + nextUid + '"]');
+          if (row) row.focus();
+        });
+      } else if (e.key === 'ArrowUp' && idx > 0) {
+        e.preventDefault();
+        var prevUid = visibleTree[idx - 1].uid;
+        setSelectedTask(prevUid);
+        render();
+        requestAnimationFrame(function() {
+          centerSelectedTaskRow();
+          var row = el.taskTbody && el.taskTbody.querySelector('tr[data-uid="' + prevUid + '"]');
+          if (row) row.focus();
+        });
+      } else if (e.key === 'Enter' && selectedUid) {
+        var row = el.taskTbody && el.taskTbody.querySelector('tr[data-uid="' + selectedUid + '"]');
+        if (row && (active === document.body || (el.taskTableWrap && el.taskTableWrap.contains(active)) || (el.ganttScrollWrap && el.ganttScrollWrap.contains(active)))) {
+          e.preventDefault();
+          openTaskDetail(selectedUid);
+        }
+      }
+    });
 
     function panTimeline(direction) {
       var wrap = el.ganttScrollWrap;

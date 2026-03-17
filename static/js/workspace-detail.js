@@ -76,7 +76,9 @@ Gantt.detail = (function() {
     lastRenderedTaskUid = null;
   }
 
-  function renderDetail(refreshAll) {
+  function renderDetail(callbacks) {
+    var mergeAndRender = (callbacks && callbacks.mergeAndRender) || (typeof callbacks === 'function' ? callbacks : null);
+    var refreshAll = (callbacks && callbacks.refreshAll) || (typeof callbacks === 'function' ? callbacks : null);
     var state = Gantt.state;
     var el = state.getEl();
     var selectedTaskUid = state.getSelectedTaskUid();
@@ -333,7 +335,12 @@ Gantt.detail = (function() {
         if (schedulingModeEl) payload.scheduling_mode = schedulingModeEl.value || 'fixed';
         workspace.ensureEditAccess(function() {
           Gantt.api.patchTask(selectedTaskUid, payload)
-            .then(function() { showToast('Task saved'); flashButtonSuccess('detail-save', 'Saved'); if (refreshAll) refreshAll(); })
+            .then(function(updatedTask) {
+              state.mergeTask(updatedTask);
+              showToast('Task saved');
+              flashButtonSuccess('detail-save', 'Saved');
+              if (mergeAndRender) mergeAndRender();
+            })
             .catch(function(e) { showToast(e.message, true); });
         });
       });
@@ -419,7 +426,13 @@ Gantt.detail = (function() {
         if ((status === 'amber' || status === 'red') && !rationale) { showToast('Rationale required for amber/red', true); return; }
         workspace.ensureEditAccess(function() {
           Gantt.api.postRag(selectedTaskUid, { status: status, rationale: rationale, path_to_green: pathToGreen })
-            .then(function() { showToast('RAG updated'); flashButtonSuccess('rag-add', 'Updated'); loadRag(); if (refreshAll) refreshAll(); })
+            .then(function(rag) {
+              showToast('RAG updated');
+              flashButtonSuccess('rag-add', 'Updated');
+              loadRag();
+              state.mergeTaskRag(selectedTaskUid, rag.status);
+              if (mergeAndRender) mergeAndRender();
+            })
             .catch(function(e) { showToast(e.message, true); });
         });
       });
@@ -584,7 +597,12 @@ Gantt.detail = (function() {
           predecessor_task_uid: pred,
           successor_task_uid: selectedTaskUid,
           dependency_type: depType
-        }).then(function() { showToast('Dependency added'); flashButtonSuccess('dep-add', 'Added'); if (refreshAll) refreshAll(); }).catch(function(e) { showToast(e.message, true); });
+        }).then(function(dep) {
+          state.addDependency(dep);
+          showToast('Dependency added');
+          flashButtonSuccess('dep-add', 'Added');
+          if (mergeAndRender) mergeAndRender();
+        }).catch(function(e) { showToast(e.message, true); });
       });
     });
 
@@ -605,7 +623,11 @@ Gantt.detail = (function() {
         var uid = b.getAttribute('data-dep-uid');
         workspace.ensureEditAccess(function() {
           Gantt.api.deleteDependency(uid)
-            .then(function() { showToast('Dependency removed'); if (refreshAll) refreshAll(); })
+            .then(function() {
+              state.removeDependency(uid);
+              showToast('Dependency removed');
+              if (mergeAndRender) mergeAndRender();
+            })
             .catch(function(e) { showToast(e.message, true); });
         });
       });

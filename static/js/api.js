@@ -73,6 +73,10 @@ Gantt.api = (function() {
     return requestJson('/api/tasks/' + taskUid + '/rag');
   }
 
+  function getBulkRag() {
+    return requestJson('/api/rag');
+  }
+
   function getTaskComments(taskUid) {
     return requestJson('/api/tasks/' + taskUid + '/comments');
   }
@@ -201,6 +205,7 @@ Gantt.api = (function() {
     getTasks: getTasks,
     getDependencies: getDependencies,
     getTaskRag: getTaskRag,
+    getBulkRag: getBulkRag,
     getTaskComments: getTaskComments,
     getTaskRisks: getTaskRisks,
     patchTask: patchTask,

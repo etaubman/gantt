@@ -178,6 +178,46 @@ Gantt.state = (function() {
     setTasks: function(t) { tasks = t; },
     setDependencies: function(d) { dependencies = d; },
     setTaskRag: function(r) { taskRag = r; },
+    mergeTask: function(task) {
+      if (!task || !task.uid) return;
+      var idx = tasks.findIndex(function(t) { return t.uid === task.uid; });
+      var normalized = Object.assign({}, task);
+      normalized.is_milestone = !!task.is_milestone;
+      normalized.is_deleted = !!task.is_deleted;
+      normalized.scheduling_mode = task.scheduling_mode || 'fixed';
+      if (idx >= 0) {
+        tasks[idx] = normalized;
+      } else {
+        tasks.push(normalized);
+      }
+    },
+    addTask: function(task) {
+      if (!task || !task.uid) return;
+      if (tasks.some(function(t) { return t.uid === task.uid; })) return;
+      var normalized = Object.assign({}, task);
+      normalized.is_milestone = !!task.is_milestone;
+      normalized.is_deleted = !!task.is_deleted;
+      normalized.scheduling_mode = task.scheduling_mode || 'fixed';
+      tasks.push(normalized);
+    },
+    mergeTaskRag: function(taskUid, status) {
+      if (!taskUid) return;
+      taskRag = Object.assign({}, taskRag);
+      if (status) {
+        taskRag[taskUid] = status;
+      } else {
+        delete taskRag[taskUid];
+      }
+    },
+    addDependency: function(dep) {
+      if (!dep || !dep.uid) return;
+      if (dependencies.some(function(d) { return d.uid === dep.uid; })) return;
+      dependencies = dependencies.concat([dep]);
+    },
+    removeDependency: function(depUid) {
+      if (!depUid) return;
+      dependencies = dependencies.filter(function(d) { return d.uid !== depUid; });
+    },
     setSelectedTaskUid: function(uid) { selectedTaskUid = uid; },
     setSelectedDomainUid: function(uid) { selectedDomainUid = uid || 'all'; },
     setSelectedAccountable: function(value) { selectedAccountable = value || 'all'; },
