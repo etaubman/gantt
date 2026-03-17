@@ -79,10 +79,11 @@ Gantt.gantt = (function() {
       cursor = dateAtStart(minDate);
       while (cursor < end) {
         next = new Date(cursor.getTime() + (7 * dayMs));
-        label = cursor.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        label = (cursor.getMonth() + 1) + '/' + cursor.getDate();
         cells.push({
           width: Math.max(1, Math.round((Math.min(next, end) - cursor) / dayMs) * pxPerDay),
-          label: label
+          label: label,
+          title: cursor.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
         });
         cursor = next;
       }
@@ -506,6 +507,7 @@ Gantt.gantt = (function() {
       timelineInner.setAttribute('data-total-width', totalWidth);
       timelineInner.setAttribute('data-today-px', Math.max(0, Math.min(totalWidth, todayPx)));
       timelineInner.setAttribute('data-px-per-day', pxPerDay);
+      timelineInner.setAttribute('data-min-date-ms', minDateStart.getTime());
     }
 
     var dateRangeEl = el.ganttDateRange || document.getElementById('gantt-date-range');

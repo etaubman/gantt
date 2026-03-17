@@ -446,7 +446,21 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
+}
+.task-table {
   scroll-behavior: smooth;
+}
+.gantt-scroll-wrap {
+  scroll-behavior: auto;
+}
+
+body.gantt-panning {
+  cursor: grabbing;
+  user-select: none;
+}
+
+body.gantt-panning * {
+  cursor: grabbing;
 }
 
 .task-table table {
@@ -2081,6 +2095,9 @@
   text-transform: uppercase;
   border-left: 1px solid rgba(255,255,255,0.08);
   box-sizing: border-box;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .gantt-header-row-major .gantt-header-cell {

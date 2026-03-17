@@ -22,15 +22,34 @@ Gantt.state = (function() {
 
   const ZOOM_PX_PER_DAY = { years: 1, quarters: 2, months: 4, weeks: 8, days: 16 };
   const DEFAULT_ZOOM = 'months';
+  const MIN_PX_PER_DAY = 0.5;
+  const MAX_PX_PER_DAY = 32;
   let timelineZoom = DEFAULT_ZOOM;
+  let timelinePxPerDay = ZOOM_PX_PER_DAY[DEFAULT_ZOOM];
 
   function getRowHeight() {
     var value = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--row-height'), 10);
     return isNaN(value) ? 44 : value;
   }
 
+  function nearestZoomLevel(pxPerDay) {
+    var best = DEFAULT_ZOOM;
+    var bestDist = Infinity;
+    Object.keys(ZOOM_PX_PER_DAY).forEach(function(level) {
+      var d = Math.abs(ZOOM_PX_PER_DAY[level] - pxPerDay);
+      if (d < bestDist) { bestDist = d; best = level; }
+    });
+    return best;
+  }
+
   function getPxPerDay() {
-    return ZOOM_PX_PER_DAY[timelineZoom] != null ? ZOOM_PX_PER_DAY[timelineZoom] : ZOOM_PX_PER_DAY[DEFAULT_ZOOM];
+    return Math.max(MIN_PX_PER_DAY, Math.min(MAX_PX_PER_DAY, timelinePxPerDay));
+  }
+
+  function setTimelinePxPerDay(px) {
+    var clamped = Math.max(MIN_PX_PER_DAY, Math.min(MAX_PX_PER_DAY, px));
+    timelinePxPerDay = clamped;
+    timelineZoom = nearestZoomLevel(clamped);
   }
 
   function normalizeDurationDays(task) {
@@ -189,8 +208,13 @@ Gantt.state = (function() {
       var px = getPxPerDay();
       return { PX_PER_DAY: px, ROW_HEIGHT: getRowHeight(), GANTT_CELL_WIDTH: 7 * px };
     },
+    getPxPerDay: getPxPerDay,
     getTimelineZoom: function() { return timelineZoom; },
-    setTimelineZoom: function(z) { timelineZoom = z; },
+    setTimelineZoom: function(z) {
+      timelineZoom = z;
+      timelinePxPerDay = ZOOM_PX_PER_DAY[z] != null ? ZOOM_PX_PER_DAY[z] : ZOOM_PX_PER_DAY[DEFAULT_ZOOM];
+    },
+    setTimelinePxPerDay: setTimelinePxPerDay,
     buildTaskTree: buildTaskTree,
     setProject: function(p) { project = p; },
     setTasks: function(t) { tasks = t; },

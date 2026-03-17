@@ -75,7 +75,8 @@ Gantt.workspace = (function() {
       if (lastVisibleTreeLength > VIRTUAL_THRESHOLD) scheduleVirtualScrollRender();
     });
     el.ganttScrollWrap.addEventListener('wheel', function(e) {
-      var horizontalDelta = Math.abs(e.deltaX) > 0 ? e.deltaX : ((e.shiftKey || e.ctrlKey || e.metaKey) ? e.deltaY : 0);
+      if (e.ctrlKey || e.metaKey) return;
+      var horizontalDelta = Math.abs(e.deltaX) > 0 ? e.deltaX : (e.shiftKey ? e.deltaY : 0);
       if (horizontalDelta) {
         e.preventDefault();
         el.ganttScrollWrap.scrollLeft += horizontalDelta;
@@ -776,7 +777,7 @@ Gantt.workspace = (function() {
     });
   }
 
-  function centerTimelineOnToday() {
+  function centerTimelineOnToday(useSmooth) {
     var el = state.getEl();
     var wrap = el.ganttScrollWrap;
     var inner = el.ganttTimelineInner;
@@ -787,7 +788,7 @@ Gantt.workspace = (function() {
     var scrollLeft = Math.max(0, todayPx - wrap.clientWidth / 2);
     wrap.scrollTo({
       left: Math.min(scrollLeft, Math.max(0, totalWidth - wrap.clientWidth)),
-      behavior: 'smooth'
+      behavior: useSmooth !== false ? 'smooth' : 'auto'
     });
   }
 
@@ -1283,7 +1284,7 @@ Gantt.workspace = (function() {
       var wrap = el.ganttScrollWrap;
       var inner = el.ganttTimelineInner;
       if (!wrap || !inner) return;
-      var pxPerDay = parseInt(inner.getAttribute('data-px-per-day'), 10) || 4;
+      var pxPerDay = parseFloat(inner.getAttribute('data-px-per-day')) || 4;
       var step = Math.max(160, pxPerDay * 14);
       var delta = direction === 'left' ? -step : step;
       wrap.scrollTo({
@@ -1292,32 +1293,104 @@ Gantt.workspace = (function() {
       });
     }
 
-    var ZOOM_ORDER = ['years', 'quarters', 'months', 'weeks', 'days'];
+    var ZOOM_STEP_FACTOR = 1.12;
+    var DAY_MS = 24 * 60 * 60 * 1000;
+    function getCenterDateMsFromView() {
+      var wrap = el.ganttScrollWrap;
+      var inner = el.ganttTimelineInner || document.getElementById('gantt-timeline-inner');
+      if (!wrap || !inner) return null;
+      var minDateMs = parseInt(inner.getAttribute('data-min-date-ms'), 10);
+      var pxPerDay = parseFloat(inner.getAttribute('data-px-per-day')) || 4;
+      if (isNaN(minDateMs) || !pxPerDay) return null;
+      var centerPx = wrap.scrollLeft + wrap.clientWidth / 2;
+      var daysFromStart = centerPx / pxPerDay;
+      return minDateMs + daysFromStart * DAY_MS;
+    }
+    function scrollToCenterDate(centerDateMs) {
+      var wrap = el.ganttScrollWrap;
+      var inner = el.ganttTimelineInner || document.getElementById('gantt-timeline-inner');
+      if (!wrap || !inner || centerDateMs == null) return;
+      var minDateMs = parseInt(inner.getAttribute('data-min-date-ms'), 10);
+      var totalWidth = parseInt(inner.getAttribute('data-total-width'), 10);
+      var pxPerDay = parseFloat(inner.getAttribute('data-px-per-day')) || 4;
+      if (isNaN(minDateMs) || isNaN(totalWidth) || !pxPerDay) return;
+      var daysFromStart = (centerDateMs - minDateMs) / DAY_MS;
+      var newCenterPx = daysFromStart * pxPerDay;
+      var targetScroll = newCenterPx - wrap.clientWidth / 2;
+      wrap.scrollLeft = Math.max(0, Math.min(targetScroll, totalWidth - wrap.clientWidth));
+    }
     function changeZoom(direction) {
-      var current = state.getTimelineZoom();
-      var idx = ZOOM_ORDER.indexOf(current);
-      if (direction === 'in' && idx < ZOOM_ORDER.length - 1) {
-        state.setTimelineZoom(ZOOM_ORDER[idx + 1]);
-        render();
-        requestAnimationFrame(centerTimelineOnToday);
-      } else if (direction === 'out' && idx > 0) {
-        state.setTimelineZoom(ZOOM_ORDER[idx - 1]);
-        render();
-        requestAnimationFrame(centerTimelineOnToday);
-      }
+      var centerMs = getCenterDateMsFromView();
+      var cur = state.getPxPerDay();
+      var next = direction === 'in' ? cur * ZOOM_STEP_FACTOR : cur / ZOOM_STEP_FACTOR;
+      state.setTimelinePxPerDay(next);
+      if (el.ganttZoomSelect) el.ganttZoomSelect.value = state.getTimelineZoom();
+      render();
+      requestAnimationFrame(function() { scrollToCenterDate(centerMs); });
     }
     if (el.ganttZoomSelect) {
       el.ganttZoomSelect.value = state.getTimelineZoom();
       el.ganttZoomSelect.addEventListener('change', function() {
+        var centerMs = getCenterDateMsFromView();
         state.setTimelineZoom(el.ganttZoomSelect.value);
         render();
-        requestAnimationFrame(centerTimelineOnToday);
+        requestAnimationFrame(function() { scrollToCenterDate(centerMs); });
       });
     }
     var btnZoomIn = document.getElementById('gantt-zoom-in');
     var btnZoomOut = document.getElementById('gantt-zoom-out');
     if (btnZoomIn) btnZoomIn.addEventListener('click', function() { changeZoom('in'); });
     if (btnZoomOut) btnZoomOut.addEventListener('click', function() { changeZoom('out'); });
+    if (el.ganttScrollWrap) {
+      var zoomWheelAccum = 0;
+      var zoomWheelRaf = null;
+      el.ganttScrollWrap.addEventListener('wheel', function(e) {
+        if (!e.ctrlKey && !e.metaKey) return;
+        if (e.deltaY === 0) return;
+        e.preventDefault();
+        var centerMs = getCenterDateMsFromView();
+        zoomWheelAccum += e.deltaY;
+        if (zoomWheelRaf) return;
+        zoomWheelRaf = requestAnimationFrame(function() {
+          zoomWheelRaf = null;
+          var cur = state.getPxPerDay();
+          var factor = Math.pow(1.006, -zoomWheelAccum);
+          zoomWheelAccum = 0;
+          state.setTimelinePxPerDay(cur * factor);
+          if (el.ganttZoomSelect) el.ganttZoomSelect.value = state.getTimelineZoom();
+          render();
+          requestAnimationFrame(function() { scrollToCenterDate(centerMs); });
+        });
+      }, { passive: false });
+      (function setupTimelinePanDrag() {
+        var panStartX = 0;
+        var panStartScrollLeft = 0;
+        var panning = false;
+        function onPanMove(e) {
+          if (!panning) return;
+          var dx = panStartX - e.clientX;
+          el.ganttScrollWrap.scrollLeft = Math.max(0, panStartScrollLeft + dx);
+        }
+        function onPanEnd() {
+          if (!panning) return;
+          panning = false;
+          document.body.classList.remove('gantt-panning');
+          document.removeEventListener('mousemove', onPanMove);
+          document.removeEventListener('mouseup', onPanEnd);
+        }
+        el.ganttScrollWrap.addEventListener('mousedown', function(e) {
+          if (e.button !== 0) return;
+          if (e.target.closest('.bar, .gantt-dep-dot')) return;
+          e.preventDefault();
+          panning = true;
+          panStartX = e.clientX;
+          panStartScrollLeft = el.ganttScrollWrap.scrollLeft;
+          document.body.classList.add('gantt-panning');
+          document.addEventListener('mousemove', onPanMove);
+          document.addEventListener('mouseup', onPanEnd);
+        });
+      })();
+    }
     setupTimelineZoomShortcuts(panTimeline, changeZoom);
     updateServerIndicatorUi();
     updateModeUi();
