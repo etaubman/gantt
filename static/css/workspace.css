@@ -492,15 +492,14 @@ body.gantt-panning * {
   border-bottom: 1px solid rgba(255,255,255,0.05);
 }
 
-.task-table th:nth-child(1) { width: 38%; }
+.task-table th:nth-child(1) { width: 36%; }
 .task-table th:nth-child(2) { width: 12%; }
 .task-table th:nth-child(3) { width: 12%; }
-.task-table th:nth-child(4),
+.task-table th:nth-child(4) { width: 16%; min-width: 140px; }
 .task-table th:nth-child(5) { width: 7%; }
-.task-table th:nth-child(6) { width: 7%; }
-.task-table th:nth-child(7) { width: 9%; }
-.task-table th:nth-child(8) { width: 6%; }
-.task-table th:nth-child(9) { width: 8%; }
+.task-table th:nth-child(6) { width: 9%; }
+.task-table th:nth-child(7) { width: 6%; }
+.task-table th:nth-child(8) { width: 8%; }
 
 .task-table td {
   padding: 0 0.85rem;
@@ -514,6 +513,12 @@ body.gantt-panning * {
 }
 
 .task-table td:first-child { white-space: nowrap; }
+
+.task-table td:nth-child(4) {
+  min-width: 140px;
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+}
 
 .task-table tbody tr.virtual-spacer td {
   padding: 0;
@@ -794,9 +799,14 @@ body.gantt-panning * {
 
 .quick-edit-date-trigger {
   min-height: 28px;
-  width: auto;
+  width: 100%;
+  max-width: 100%;
   padding: 0 0.65rem;
   border-radius: 999px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
   border: 1px solid rgba(255,255,255,0.05);
   background: rgba(255,255,255,0.03);
   color: var(--text-secondary);
