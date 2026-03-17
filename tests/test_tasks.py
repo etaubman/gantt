@@ -294,6 +294,39 @@ def test_patch_task_description_and_dates(client, seed_task_uids):
     assert data["end_date"] == "2025-03-31"
 
 
+def test_create_task_with_duration_sets_end_date(client, project_uid):
+    r = client.post(
+        "/api/tasks",
+        json={
+            "name": "Duration-based task",
+            "start_date": "2025-04-01",
+            "duration_days": 10,
+        },
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert data["duration_days"] == 10
+    assert data["start_date"] == "2025-04-01"
+    assert data["end_date"] == "2025-04-10"
+
+
+def test_patch_task_duration_updates_end_date(client, seed_task_uids):
+    uid = seed_task_uids[0]
+    client.patch(
+        f"/api/tasks/{uid}",
+        json={"start_date": "2025-05-01", "end_date": "2025-05-03", "scheduling_mode": "fixed"},
+    )
+    r = client.patch(
+        f"/api/tasks/{uid}",
+        json={"duration_days": 5},
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert data["duration_days"] == 5
+    assert data["start_date"] == "2025-05-01"
+    assert data["end_date"] == "2025-05-05"
+
+
 def test_patch_task_progress_boundaries(client, seed_task_uids):
     uid = seed_task_uids[0]
     for val in (0, 100):

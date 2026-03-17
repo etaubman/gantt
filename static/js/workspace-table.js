@@ -30,12 +30,57 @@ Gantt.table = (function() {
   var QUICK_EDIT_LABELS = {
     accountable: 'Accountable',
     responsible: 'Responsible',
-    start: 'Start date',
-    end: 'End date',
+    start: 'Schedule',
+    end: 'Schedule',
     rag: 'RAG',
     status: 'Status',
     progress: 'Percent complete'
   };
+
+  function getDurationDays(task) {
+    if (!task) return 7;
+    if (task.is_milestone) return 1;
+    var raw = parseInt(task.duration_days, 10);
+    if (!isNaN(raw) && raw > 0) return raw;
+    if (task.start_date && task.end_date) {
+      var start = new Date(task.start_date);
+      var end = new Date(task.end_date);
+      if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+        return Math.max(1, Math.round((end - start) / (24 * 60 * 60 * 1000)) + 1);
+      }
+    }
+    return 7;
+  }
+
+  function addDays(value, dayCount) {
+    var next = new Date(value.getTime());
+    next.setDate(next.getDate() + dayCount);
+    return next;
+  }
+
+  function formatIsoDate(value) {
+    if (!(value instanceof Date) || isNaN(value.getTime())) return '';
+    return value.toISOString().slice(0, 10);
+  }
+
+  function syncSchedulePopoverUi(popover) {
+    if (!popover) return;
+    var modeInput = popover.querySelector('[data-quick-input="scheduling_mode"]');
+    var durationInput = popover.querySelector('[data-quick-input="duration_days"]');
+    var startInput = popover.querySelector('[data-quick-input="start_date"]');
+    var endInput = popover.querySelector('[data-quick-input="end_date"]');
+    var milestoneFlag = popover.getAttribute('data-task-is-milestone') === '1';
+    var mode = modeInput ? (modeInput.value || 'fixed') : 'fixed';
+    var disableDates = milestoneFlag || mode === 'auto';
+    if (startInput) startInput.disabled = disableDates;
+    if (endInput) endInput.disabled = disableDates;
+    if (durationInput) durationInput.disabled = milestoneFlag;
+    popover.querySelectorAll('[data-schedule-mode]').forEach(function(button) {
+      button.classList.toggle('is-active', button.getAttribute('data-schedule-mode') === mode);
+    });
+    var hint = popover.querySelector('[data-quick-schedule-hint]');
+    if (hint) hint.hidden = !(mode === 'auto' && !milestoneFlag);
+  }
 
   function ensureQuickEditPopover() {
     if (quickEditPopoverEl && quickEditPopoverEl.isConnected) return quickEditPopoverEl;
@@ -215,10 +260,20 @@ Gantt.table = (function() {
       return '<div class="field"><label>Responsible</label><input type="text" data-quick-input="responsible_party" value="' + escapeHtml(task.responsible_party || '') + '" placeholder="Responsible owner" /></div>';
     }
     if (field === 'start') {
-      return '<div class="field"><label>Start date</label><input type="date" data-quick-input="start_date" value="' + escapeHtml(dateStr(task.start_date)) + '" /></div>';
+      return '<div class="field"><label>Scheduling</label>' +
+        '<div class="schedule-mode-toggle" data-schedule-mode-toggle>' +
+          '<button type="button" class="schedule-mode-btn' + ((task.scheduling_mode || 'fixed') !== 'auto' ? ' is-active' : '') + '" data-schedule-mode="fixed">Fixed</button>' +
+          '<button type="button" class="schedule-mode-btn' + ((task.scheduling_mode || 'fixed') === 'auto' ? ' is-active' : '') + '" data-schedule-mode="auto">Auto</button>' +
+        '</div>' +
+        '<input type="hidden" data-quick-input="scheduling_mode" value="' + escapeHtml(task.scheduling_mode || 'fixed') + '" />' +
+      '</div>' +
+      '<div class="field"><label>Duration (days)</label><input type="number" min="1" data-quick-input="duration_days" value="' + getDurationDays(task) + '" /></div>' +
+      '<div class="field"><label>Start date</label><input type="date" data-quick-input="start_date" value="' + escapeHtml(dateStr(task.start_date)) + '" /></div>' +
+      '<div class="field"><label>End date</label><input type="date" data-quick-input="end_date" value="' + escapeHtml(dateStr(task.end_date)) + '" /></div>' +
+      '<div class="quick-edit-hint" data-quick-schedule-hint hidden>Auto scheduling follows predecessor dependencies and uses duration to keep the task span.</div>';
     }
     if (field === 'end') {
-      return '<div class="field"><label>End date</label><input type="date" data-quick-input="end_date" value="' + escapeHtml(dateStr(task.end_date)) + '" /></div>';
+      return buildQuickEditBody(task, 'start', taskRag);
     }
     if (field === 'status') {
       return '<div class="field"><label>Status</label>' +
@@ -263,10 +318,33 @@ Gantt.table = (function() {
       return { responsible_party: (popover.querySelector('[data-quick-input="responsible_party"]').value || '').trim() };
     }
     if (field === 'start') {
-      return { start_date: popover.querySelector('[data-quick-input="start_date"]').value || null };
+      var mode = popover.querySelector('[data-quick-input="scheduling_mode"]').value || 'fixed';
+      var durationDays = Math.max(1, parseInt(popover.querySelector('[data-quick-input="duration_days"]').value, 10) || 1);
+      var schedulePayload = {
+        scheduling_mode: mode,
+        duration_days: durationDays
+      };
+      if (mode === 'fixed') {
+        var startValue = popover.querySelector('[data-quick-input="start_date"]').value || null;
+        var endValue = popover.querySelector('[data-quick-input="end_date"]').value || null;
+        if (startValue) {
+          var startDate = new Date(startValue);
+          if (!isNaN(startDate.getTime())) {
+            endValue = formatIsoDate(addDays(startDate, durationDays - 1));
+          }
+        } else if (endValue) {
+          var endDate = new Date(endValue);
+          if (!isNaN(endDate.getTime())) {
+            startValue = formatIsoDate(addDays(endDate, -(durationDays - 1)));
+          }
+        }
+        schedulePayload.start_date = startValue;
+        schedulePayload.end_date = endValue;
+      }
+      return schedulePayload;
     }
     if (field === 'end') {
-      return { end_date: popover.querySelector('[data-quick-input="end_date"]').value || null };
+      return getQuickEditPayload(popover, 'start');
     }
     if (field === 'status') {
       return { status: popover.querySelector('[data-quick-input="status"]').value };
@@ -338,6 +416,7 @@ Gantt.table = (function() {
         '<button type="button" class="btn btn-ghost" data-quick-edit-cancel>Cancel</button>' +
         '<button type="button" class="btn btn-primary" data-quick-edit-save>Save</button>' +
       '</div>';
+    popover.setAttribute('data-task-is-milestone', task.is_milestone ? '1' : '0');
     popover.hidden = false;
     popover.style.visibility = 'hidden';
     requestAnimationFrame(function() {
@@ -396,6 +475,18 @@ Gantt.table = (function() {
         });
       });
       syncProgressUi(popover);
+    }
+
+    if (field === 'start' || field === 'end') {
+      popover.querySelectorAll('[data-schedule-mode]').forEach(function(button) {
+        button.addEventListener('click', function() {
+          var hiddenInput = popover.querySelector('[data-quick-input="scheduling_mode"]');
+          if (!hiddenInput) return;
+          hiddenInput.value = button.getAttribute('data-schedule-mode') || 'fixed';
+          syncSchedulePopoverUi(popover);
+        });
+      });
+      syncSchedulePopoverUi(popover);
     }
 
     if (field === 'rag') {

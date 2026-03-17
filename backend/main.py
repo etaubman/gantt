@@ -44,6 +44,7 @@ class TaskCreate(BaseModel):
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     is_milestone: bool = False
+    duration_days: int = Field(7, ge=1)
     status: str = "not_started"
     progress: int = Field(0, ge=0, le=100)
     sort_order: Optional[int] = None
@@ -57,6 +58,7 @@ class TaskUpdate(BaseModel):
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     is_milestone: Optional[bool] = None
+    duration_days: Optional[int] = Field(None, ge=1)
     status: Optional[str] = None
     progress: Optional[int] = Field(None, ge=0, le=100)
     sort_order: Optional[int] = None
@@ -121,6 +123,7 @@ def _normalize_task_dict(row) -> dict:
     task["is_milestone"] = bool(task.get("is_milestone"))
     task["is_deleted"] = bool(task.get("is_deleted"))
     task["scheduling_mode"] = task.get("scheduling_mode") or "fixed"
+    task["duration_days"] = _task_duration_days(task)
     return task
 
 
@@ -138,6 +141,64 @@ def _validate_scheduling_mode(mode: Optional[str]) -> Optional[str]:
     if mode not in VALID_SCHEDULING_MODES:
         raise HTTPException(400, "scheduling_mode must be 'fixed' or 'auto'")
     return mode
+
+
+def _parse_iso_date(value: Optional[str]) -> Optional[date]:
+    text = (value or "").strip()
+    if not text:
+        return None
+    return date.fromisoformat(text[:10])
+
+
+def _format_iso_date(value: Optional[date]) -> Optional[str]:
+    return value.isoformat() if value else None
+
+
+def _task_duration_days(task: Optional[dict]) -> int:
+    if not task:
+        return 7
+    if task.get("is_milestone"):
+        return 1
+    raw_value = task.get("duration_days")
+    try:
+        parsed = int(raw_value)
+        if parsed > 0:
+            return parsed
+    except (TypeError, ValueError):
+        pass
+    start_value = task.get("start_date")
+    end_value = task.get("end_date")
+    try:
+        start_date = _parse_iso_date(start_value)
+        end_date = _parse_iso_date(end_value)
+    except ValueError:
+        return 7
+    if start_date and end_date:
+        return max(1, (end_date - start_date).days + 1)
+    return 7
+
+
+def _apply_duration_to_dates(
+    *,
+    start_date_value: Optional[str],
+    end_date_value: Optional[str],
+    duration_days: int,
+    anchor: str = "start",
+) -> tuple[Optional[str], Optional[str]]:
+    if duration_days <= 0:
+        duration_days = 1
+    try:
+        start_date = _parse_iso_date(start_date_value)
+        end_date = _parse_iso_date(end_date_value)
+    except ValueError:
+        return start_date_value, end_date_value
+    if anchor == "end" and end_date:
+        start_date = end_date - timedelta(days=max(0, duration_days - 1))
+    elif start_date:
+        end_date = start_date + timedelta(days=max(0, duration_days - 1))
+    elif end_date:
+        start_date = end_date - timedelta(days=max(0, duration_days - 1))
+    return _format_iso_date(start_date), _format_iso_date(end_date)
 
 
 def _validate_soft_delete_strategy(strategy: str) -> str:
@@ -173,10 +234,112 @@ def _get_actor_employee_id(request: Optional[Request]) -> str:
     return value
 
 
-def _propagate_auto_schedule(conn, project_uid: str, changed_task_uid: str, actor_employee_id: str) -> None:
-    """When a task's dates change, propagate to auto-scheduled successors based on dependencies."""
+def _reschedule_auto_task(conn, project_uid: str, task_uid: str, actor_employee_id: str, visited: set[str]) -> None:
+    if task_uid in visited:
+        return
+    visited.add(task_uid)
+    task_row = conn.execute(
+        """SELECT uid, name, project_uid, start_date, end_date, is_milestone, duration_days, scheduling_mode
+           FROM tasks
+           WHERE uid = ? AND project_uid = ? AND COALESCE(is_deleted, 0) = 0""",
+        (task_uid, project_uid),
+    ).fetchone()
+    if not task_row:
+        return
+    current_task = _normalize_task_dict(task_row)
+    if current_task["scheduling_mode"] != "auto":
+        return
+
+    incoming_deps = conn.execute(
+        """SELECT d.predecessor_task_uid, d.successor_task_uid, d.dependency_type,
+                  t.start_date AS predecessor_start_date,
+                  t.end_date AS predecessor_end_date
+           FROM dependencies d
+           JOIN tasks t ON t.uid = d.predecessor_task_uid
+           WHERE d.project_uid = ? AND d.successor_task_uid = ?
+             AND COALESCE(t.is_deleted, 0) = 0""",
+        (project_uid, task_uid),
+    ).fetchall()
+    if not incoming_deps:
+        return
+
+    start_constraints: list[date] = []
+    end_constraints: list[date] = []
+    for dep in incoming_deps:
+        try:
+            predecessor_start = _parse_iso_date(dep["predecessor_start_date"])
+            predecessor_end = _parse_iso_date(dep["predecessor_end_date"])
+        except ValueError:
+            continue
+        dep_type = (dep["dependency_type"] or "FS").upper()
+        if dep_type == "FS" and predecessor_end:
+            start_constraints.append(predecessor_end)
+        elif dep_type == "SS" and predecessor_start:
+            start_constraints.append(predecessor_start)
+        elif dep_type == "FF" and predecessor_end:
+            end_constraints.append(predecessor_end)
+        elif dep_type == "SF" and predecessor_start:
+            end_constraints.append(predecessor_start)
+
+    if not start_constraints and not end_constraints:
+        return
+
+    duration_days = _task_duration_days(current_task)
+    max_start = max(start_constraints) if start_constraints else None
+    max_end = max(end_constraints) if end_constraints else None
+
+    if max_start and max_end:
+        proposed_start = max(max_start, max_end - timedelta(days=max(0, duration_days - 1)))
+        proposed_end = proposed_start + timedelta(days=max(0, duration_days - 1))
+    elif max_start:
+        proposed_start = max_start
+        proposed_end = proposed_start + timedelta(days=max(0, duration_days - 1))
+    else:
+        proposed_end = max_end
+        proposed_start = proposed_end - timedelta(days=max(0, duration_days - 1))
+
+    new_start_str = _format_iso_date(proposed_start)
+    new_end_str = _format_iso_date(proposed_end)
+    if current_task.get("start_date") == new_start_str and current_task.get("end_date") == new_end_str:
+        _propagate_auto_schedule(conn, project_uid, task_uid, actor_employee_id, visited)
+        return
+
+    now = _now()
+    conn.execute(
+        "UPDATE tasks SET start_date = ?, end_date = ?, duration_days = ?, updated_at = ? WHERE uid = ?",
+        (new_start_str, new_end_str, duration_days, now, task_uid),
+    )
+    updated_row = conn.execute("SELECT * FROM tasks WHERE uid = ?", (task_uid,)).fetchone()
+    updated_task = _normalize_task_dict(updated_row) if updated_row else current_task
+    _record_audit_event(
+        conn,
+        actor_employee_id=actor_employee_id,
+        action_type="task_update",
+        entity_type="task",
+        entity_uid=task_uid,
+        task_uid=task_uid,
+        task_name=updated_task.get("name") or current_task.get("name"),
+        prior_value=current_task,
+        new_value=updated_task,
+        metadata={
+            "auto_scheduled": True,
+            "dependency_count": len(incoming_deps),
+            "triggered_by": sorted({dep["predecessor_task_uid"] for dep in incoming_deps}),
+        },
+    )
+    _propagate_auto_schedule(conn, project_uid, task_uid, actor_employee_id, visited)
+
+
+def _propagate_auto_schedule(
+    conn,
+    project_uid: str,
+    changed_task_uid: str,
+    actor_employee_id: str,
+    visited: Optional[set[str]] = None,
+) -> None:
+    visited = visited or set()
     deps = conn.execute(
-        """SELECT d.uid, d.predecessor_task_uid, d.successor_task_uid, d.dependency_type
+        """SELECT DISTINCT d.successor_task_uid
            FROM dependencies d
            JOIN tasks t ON t.uid = d.successor_task_uid
            WHERE d.predecessor_task_uid = ? AND d.project_uid = ?
@@ -184,66 +347,8 @@ def _propagate_auto_schedule(conn, project_uid: str, changed_task_uid: str, acto
              AND COALESCE(t.is_deleted, 0) = 0""",
         (changed_task_uid, project_uid),
     ).fetchall()
-    if not deps:
-        return
-    tasks_by_uid = {}
-    for r in conn.execute(
-        """SELECT uid, start_date, end_date FROM tasks
-           WHERE project_uid = ? AND COALESCE(is_deleted, 0) = 0""",
-        (project_uid,),
-    ).fetchall():
-        tasks_by_uid[r["uid"]] = dict(r)
-    now = _now()
     for dep in deps:
-        succ_uid = dep["successor_task_uid"]
-        pred_uid = dep["predecessor_task_uid"]
-        dep_type = (dep["dependency_type"] or "FS").upper()
-        pred = tasks_by_uid.get(pred_uid)
-        succ = tasks_by_uid.get(succ_uid)
-        if not pred or not succ:
-            continue
-        pred_start = date.fromisoformat(pred["start_date"][:10]) if pred.get("start_date") else None
-        pred_end = date.fromisoformat(pred["end_date"][:10]) if pred.get("end_date") else None
-        succ_start = date.fromisoformat(succ["start_date"][:10]) if succ.get("start_date") else None
-        succ_end = date.fromisoformat(succ["end_date"][:10]) if succ.get("end_date") else None
-        if not pred_start or not pred_end:
-            continue
-        duration_days = (succ_end - succ_start).days if (succ_start and succ_end) else 7
-        new_start, new_end = None, None
-        if dep_type == "FS":
-            new_start = pred_end
-            new_end = new_start + timedelta(days=max(1, duration_days))
-        elif dep_type == "SS":
-            new_start = pred_start
-            new_end = new_start + timedelta(days=max(1, duration_days))
-        elif dep_type == "FF":
-            new_end = pred_end
-            new_start = new_end - timedelta(days=max(1, duration_days))
-        elif dep_type == "SF":
-            new_end = pred_start
-            new_start = new_end - timedelta(days=max(1, duration_days))
-        else:
-            continue
-        new_start_str = new_start.isoformat()
-        new_end_str = new_end.isoformat()
-        conn.execute(
-            "UPDATE tasks SET start_date = ?, end_date = ?, updated_at = ? WHERE uid = ?",
-            (new_start_str, new_end_str, now, succ_uid),
-        )
-        tasks_by_uid[succ_uid] = {"uid": succ_uid, "start_date": new_start_str, "end_date": new_end_str}
-        _record_audit_event(
-            conn,
-            actor_employee_id=actor_employee_id,
-            action_type="task_update",
-            entity_type="task",
-            entity_uid=succ_uid,
-            task_uid=succ_uid,
-            task_name=_get_task_name(conn, succ_uid),
-            prior_value={"start_date": succ.get("start_date"), "end_date": succ.get("end_date")},
-            new_value={"start_date": new_start_str, "end_date": new_end_str},
-            metadata={"auto_scheduled": True, "predecessor_uid": pred_uid, "dependency_type": dep_type},
-        )
-        _propagate_auto_schedule(conn, project_uid, succ_uid, actor_employee_id)
+        _reschedule_auto_task(conn, project_uid, dep["successor_task_uid"], actor_employee_id, visited)
 
 
 def _get_task_name(conn, task_uid: Optional[str]) -> Optional[str]:
@@ -480,7 +585,7 @@ def list_tasks(project_uid: str):
             raise HTTPException(404, "Project not found")
         cur = conn.execute(
             """SELECT uid, project_uid, parent_task_uid, name, description, accountable_person,
-                     responsible_party, start_date, end_date, is_milestone, status, progress, sort_order,
+                     responsible_party, start_date, end_date, is_milestone, duration_days, status, progress, sort_order,
                      scheduling_mode, is_deleted, deleted_at, deleted_by, created_at, updated_at
               FROM tasks WHERE project_uid = ? AND COALESCE(is_deleted, 0) = 0 ORDER BY sort_order, created_at""",
             (project_uid,),
@@ -505,6 +610,8 @@ def create_task(project_uid: str, body: TaskCreate, request: Request):
             raise HTTPException(404, "Project not found")
         start_date = body.start_date
         end_date = body.end_date
+        explicit_duration = "duration_days" in body.model_fields_set
+        duration_days = 1 if body.is_milestone else max(1, body.duration_days or 7)
         if body.parent_task_uid:
             parent_row = conn.execute(
                 "SELECT uid, project_uid, start_date, end_date FROM tasks WHERE uid = ?", (body.parent_task_uid,)
@@ -516,9 +623,24 @@ def create_task(project_uid: str, body: TaskCreate, request: Request):
                 try:
                     parent_start = date.fromisoformat(str(parent["start_date"])[:10])
                     start_date = parent_start.isoformat()
-                    end_date = (parent_start + timedelta(days=7)).isoformat()
+                    end_date = (parent_start + timedelta(days=max(0, duration_days - 1))).isoformat()
                 except (ValueError, TypeError):
                     pass
+        if body.is_milestone:
+            duration_days = 1
+            if start_date and not end_date:
+                end_date = start_date
+            elif end_date and not start_date:
+                start_date = end_date
+            elif start_date and end_date and start_date != end_date:
+                end_date = start_date
+        elif duration_days and (start_date or end_date) and (explicit_duration or not (start_date and end_date)):
+            start_date, end_date = _apply_duration_to_dates(
+                start_date_value=start_date,
+                end_date_value=end_date,
+                duration_days=duration_days,
+                anchor="start" if start_date else "end",
+            )
         if body.sort_order is not None:
             sort_order = body.sort_order
         elif body.parent_task_uid is None:
@@ -536,13 +658,13 @@ def create_task(project_uid: str, body: TaskCreate, request: Request):
             scheduling_mode = "fixed"
         conn.execute(
             """INSERT INTO tasks (uid, project_uid, parent_task_uid, name, description,
-               accountable_person, responsible_party, start_date, end_date, is_milestone, status, progress, sort_order,
+               accountable_person, responsible_party, start_date, end_date, is_milestone, duration_days, status, progress, sort_order,
                scheduling_mode, is_deleted, deleted_at, deleted_by, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 uid, project_uid, body.parent_task_uid, body.name.strip(), body.description or "",
                 body.accountable_person or "", body.responsible_party or "",
-                start_date, end_date, int(body.is_milestone), body.status, body.progress, sort_order,
+                start_date, end_date, int(body.is_milestone), duration_days, body.status, body.progress, sort_order,
                 scheduling_mode, 0, None, None, now, now,
             ),
         )
@@ -550,7 +672,7 @@ def create_task(project_uid: str, body: TaskCreate, request: Request):
                 "name": body.name.strip(), "description": body.description or "",
                 "accountable_person": body.accountable_person or "", "responsible_party": body.responsible_party or "",
                 "start_date": start_date, "end_date": end_date, "is_milestone": body.is_milestone, "status": body.status,
-                "progress": body.progress, "sort_order": sort_order, "scheduling_mode": scheduling_mode, "is_deleted": False,
+                "duration_days": duration_days, "progress": body.progress, "sort_order": sort_order, "scheduling_mode": scheduling_mode, "is_deleted": False,
                 "deleted_at": None, "deleted_by": None, "created_at": now, "updated_at": now}
         _record_audit_event(
             conn,
@@ -577,7 +699,7 @@ def get_task(uid: str):
     with get_conn() as conn:
         row = conn.execute(
             """SELECT uid, project_uid, parent_task_uid, name, description, accountable_person,
-                      responsible_party, start_date, end_date, is_milestone, status, progress, sort_order,
+                      responsible_party, start_date, end_date, is_milestone, duration_days, status, progress, sort_order,
                       scheduling_mode, is_deleted, deleted_at, deleted_by, created_at, updated_at
                FROM tasks WHERE uid = ?""",
             (uid,),
@@ -592,30 +714,81 @@ def update_task(uid: str, body: TaskUpdate, request: Request):
     _validate_task_status(body.status)
     if body.scheduling_mode is not None:
         _validate_scheduling_mode(body.scheduling_mode)
-    updates = []
-    values = []
-    for k, v in body.model_dump(exclude_unset=True).items():
-        updates.append(f"{k} = ?")
-        values.append(int(v) if k == "is_milestone" else v)
-    if not updates:
+    incoming = body.model_dump(exclude_unset=True)
+    if not incoming:
         return get_task(uid)
-    values.append(_now())
-    updates.append("updated_at = ?")
-    values.append(uid)
     actor_employee_id = _get_actor_employee_id(request)
     with get_conn() as conn:
         previous_row = conn.execute("SELECT * FROM tasks WHERE uid = ?", (uid,)).fetchone()
         if not previous_row:
             raise HTTPException(404, "Task not found")
-        conn.execute(
-            f"UPDATE tasks SET {', '.join(updates)} WHERE uid = ?",
-            values,
-        )
+        previous_task = _normalize_task_dict(previous_row)
+        task = dict(previous_task)
+        task.update(incoming)
+        task["scheduling_mode"] = (task.get("scheduling_mode") or "fixed").lower()
+        if task["scheduling_mode"] not in VALID_SCHEDULING_MODES:
+            task["scheduling_mode"] = "fixed"
+
+        if task.get("is_milestone"):
+            task["duration_days"] = 1
+            if task.get("start_date") and not task.get("end_date"):
+                task["end_date"] = task["start_date"]
+            elif task.get("end_date") and not task.get("start_date"):
+                task["start_date"] = task["end_date"]
+            elif task.get("start_date") and task.get("end_date") and task["start_date"] != task["end_date"]:
+                task["end_date"] = task["start_date"]
+        else:
+            if "duration_days" in incoming and task.get("duration_days"):
+                task["duration_days"] = max(1, int(task["duration_days"]))
+                if task["scheduling_mode"] == "fixed":
+                    task["start_date"], task["end_date"] = _apply_duration_to_dates(
+                        start_date_value=task.get("start_date"),
+                        end_date_value=task.get("end_date"),
+                        duration_days=task["duration_days"],
+                        anchor="start" if task.get("start_date") else "end",
+                    )
+            if task.get("start_date") and task.get("end_date"):
+                task["duration_days"] = _task_duration_days(task)
+            elif not task.get("duration_days"):
+                task["duration_days"] = _task_duration_days(task)
+
+        updates = []
+        values = []
+        for key in (
+            "name",
+            "description",
+            "accountable_person",
+            "responsible_party",
+            "start_date",
+            "end_date",
+            "is_milestone",
+            "duration_days",
+            "status",
+            "progress",
+            "sort_order",
+            "scheduling_mode",
+        ):
+            if previous_task.get(key) != task.get(key):
+                updates.append(f"{key} = ?")
+                values.append(int(task[key]) if key == "is_milestone" else task.get(key))
+        if not updates:
+            return previous_task
+        values.append(_now())
+        updates.append("updated_at = ?")
+        values.append(uid)
+        conn.execute(f"UPDATE tasks SET {', '.join(updates)} WHERE uid = ?", values)
         row = conn.execute("SELECT * FROM tasks WHERE uid = ?", (uid,)).fetchone()
         if not row:
             raise HTTPException(404, "Task not found")
-        previous_task = _normalize_task_dict(previous_row)
         task = _normalize_task_dict(row)
+        project_uid = row["project_uid"]
+        scheduling_changed = previous_task.get("scheduling_mode") != task.get("scheduling_mode")
+        duration_changed = previous_task.get("duration_days") != task.get("duration_days")
+        date_changed = previous_task.get("start_date") != task.get("start_date") or previous_task.get("end_date") != task.get("end_date")
+        if task["scheduling_mode"] == "auto" and (scheduling_changed or duration_changed or date_changed):
+            _reschedule_auto_task(conn, project_uid, uid, actor_employee_id, set())
+            row = conn.execute("SELECT * FROM tasks WHERE uid = ?", (uid,)).fetchone()
+            task = _normalize_task_dict(row) if row else task
         _record_audit_event(
             conn,
             actor_employee_id=actor_employee_id,
@@ -627,8 +800,7 @@ def update_task(uid: str, body: TaskUpdate, request: Request):
             prior_value=previous_task,
             new_value=task,
         )
-        if "start_date" in body.model_dump(exclude_unset=True) or "end_date" in body.model_dump(exclude_unset=True):
-            project_uid = row["project_uid"]
+        if scheduling_changed or duration_changed or date_changed:
             _propagate_auto_schedule(conn, project_uid, uid, actor_employee_id)
             row = conn.execute("SELECT * FROM tasks WHERE uid = ?", (uid,)).fetchone()
             if row:
@@ -1102,6 +1274,7 @@ def create_dependency(project_uid: str, body: DependencyCreate, request: Request
             new_value=dependency,
             metadata={"predecessor_task_name": _get_task_name(conn, body.predecessor_task_uid)},
         )
+        _reschedule_auto_task(conn, project_uid, body.successor_task_uid, actor_employee_id, set())
     return dependency
 
 
@@ -1143,6 +1316,7 @@ def delete_dependency(uid: str, request: Request):
             new_value=None,
             metadata={"predecessor_task_name": _get_task_name(conn, dep.get("predecessor_task_uid"))},
         )
+        _reschedule_auto_task(conn, dep["project_uid"], dep["successor_task_uid"], actor_employee_id, set())
     return None
 
 

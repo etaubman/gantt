@@ -130,6 +130,75 @@ def test_list_dependencies_project_not_found(client):
     assert r.status_code == 404
 
 
+def test_auto_task_reschedules_from_multiple_dependencies(client, project_uid):
+    pred_one = client.post(
+        "/api/tasks",
+        json={"name": "Pred one", "start_date": "2025-01-01", "end_date": "2025-01-05"},
+    ).json()
+    pred_two = client.post(
+        "/api/tasks",
+        json={"name": "Pred two", "start_date": "2025-01-03", "end_date": "2025-01-08"},
+    ).json()
+    succ = client.post(
+        "/api/tasks",
+        json={"name": "Auto successor", "scheduling_mode": "auto", "duration_days": 3},
+    ).json()
+
+    client.post(
+        "/api/dependencies",
+        json={"predecessor_task_uid": pred_one["uid"], "successor_task_uid": succ["uid"], "dependency_type": "FS"},
+    )
+    client.post(
+        "/api/dependencies",
+        json={"predecessor_task_uid": pred_two["uid"], "successor_task_uid": succ["uid"], "dependency_type": "FS"},
+    )
+
+    scheduled = client.get(f"/api/tasks/{succ['uid']}").json()
+    assert scheduled["start_date"] == "2025-01-08"
+    assert scheduled["end_date"] == "2025-01-10"
+    assert scheduled["duration_days"] == 3
+
+    client.patch(f"/api/tasks/{pred_one['uid']}", json={"end_date": "2025-01-12"})
+    rescheduled = client.get(f"/api/tasks/{succ['uid']}").json()
+    assert rescheduled["start_date"] == "2025-01-12"
+    assert rescheduled["end_date"] == "2025-01-14"
+
+
+def test_delete_dependency_reschedules_auto_successor(client, project_uid):
+    pred_one = client.post(
+        "/api/tasks",
+        json={"name": "Pred one", "start_date": "2025-02-01", "end_date": "2025-02-10"},
+    ).json()
+    pred_two = client.post(
+        "/api/tasks",
+        json={"name": "Pred two", "start_date": "2025-02-01", "end_date": "2025-02-05"},
+    ).json()
+    succ = client.post(
+        "/api/tasks",
+        json={"name": "Auto successor", "scheduling_mode": "auto", "duration_days": 2},
+    ).json()
+
+    dep_one = client.post(
+        "/api/dependencies",
+        json={"predecessor_task_uid": pred_one["uid"], "successor_task_uid": succ["uid"], "dependency_type": "FS"},
+    ).json()
+    client.post(
+        "/api/dependencies",
+        json={"predecessor_task_uid": pred_two["uid"], "successor_task_uid": succ["uid"], "dependency_type": "FS"},
+    )
+
+    before_delete = client.get(f"/api/tasks/{succ['uid']}").json()
+    assert before_delete["start_date"] == "2025-02-10"
+    assert before_delete["end_date"] == "2025-02-11"
+
+    r = client.delete(f"/api/dependencies/{dep_one['uid']}")
+    assert r.status_code == 204
+
+    after_delete = client.get(f"/api/tasks/{succ['uid']}").json()
+    assert after_delete["start_date"] == "2025-02-05"
+    assert after_delete["end_date"] == "2025-02-06"
+
+
 def test_create_dependency_via_project_uid(client, seed_task_uids, project_uid):
     pred, succ = seed_task_uids[0], seed_task_uids[1]
     r = client.post(

@@ -33,6 +33,21 @@ Gantt.state = (function() {
     return ZOOM_PX_PER_DAY[timelineZoom] != null ? ZOOM_PX_PER_DAY[timelineZoom] : ZOOM_PX_PER_DAY[DEFAULT_ZOOM];
   }
 
+  function normalizeDurationDays(task) {
+    if (!task) return 7;
+    if (task.is_milestone) return 1;
+    var raw = parseInt(task.duration_days, 10);
+    if (!isNaN(raw) && raw > 0) return raw;
+    if (task.start_date && task.end_date) {
+      var start = new Date(task.start_date);
+      var end = new Date(task.end_date);
+      if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+        return Math.max(1, Math.round((end - start) / (24 * 60 * 60 * 1000)) + 1);
+      }
+    }
+    return 7;
+  }
+
   const el = {
     projectTitle: document.getElementById('project-title'),
     projectMeta: document.getElementById('project-meta'),
@@ -188,6 +203,7 @@ Gantt.state = (function() {
       normalized.is_milestone = !!task.is_milestone;
       normalized.is_deleted = !!task.is_deleted;
       normalized.scheduling_mode = task.scheduling_mode || 'fixed';
+      normalized.duration_days = normalizeDurationDays(task);
       if (idx >= 0) {
         tasks[idx] = normalized;
       } else {
@@ -201,6 +217,7 @@ Gantt.state = (function() {
       normalized.is_milestone = !!task.is_milestone;
       normalized.is_deleted = !!task.is_deleted;
       normalized.scheduling_mode = task.scheduling_mode || 'fixed';
+      normalized.duration_days = normalizeDurationDays(task);
       tasks.push(normalized);
     },
     mergeTaskRag: function(taskUid, status) {

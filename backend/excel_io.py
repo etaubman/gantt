@@ -97,7 +97,7 @@ def export_project_to_xlsx(project_uid: str) -> str | None:
         projects = [dict(proj)]
         tasks = [dict(r) for r in conn.execute(
             """SELECT uid, project_uid, parent_task_uid, name, description, accountable_person, responsible_party,
-                      start_date, end_date, is_milestone, status, progress, sort_order, scheduling_mode,
+                      start_date, end_date, is_milestone, duration_days, status, progress, sort_order, scheduling_mode,
                       is_deleted, deleted_at, deleted_by, created_at, updated_at
                FROM tasks WHERE project_uid = ?""",
             (project_uid,),
@@ -139,9 +139,9 @@ def export_project_to_xlsx(project_uid: str) -> str | None:
 
     # Tasks
     ws_tasks = wb.create_sheet("Tasks")
-    ws_tasks.append(["Task UID", "Project UID", "Parent Task UID", "Name", "Description", "Accountable Person", "Responsible Party", "Start Date", "End Date", "Is Milestone", "Status", "Progress", "Sort Order", "Scheduling Mode", "Is Deleted", "Deleted At", "Deleted By", "Created At", "Updated At"])
+    ws_tasks.append(["Task UID", "Project UID", "Parent Task UID", "Name", "Description", "Accountable Person", "Responsible Party", "Start Date", "End Date", "Is Milestone", "Duration Days", "Status", "Progress", "Sort Order", "Scheduling Mode", "Is Deleted", "Deleted At", "Deleted By", "Created At", "Updated At"])
     for t in tasks:
-        ws_tasks.append([t["uid"], t["project_uid"], t["parent_task_uid"] or "", t["name"], t["description"] or "", t["accountable_person"] or "", t["responsible_party"] or "", t["start_date"] or "", t["end_date"] or "", bool(t.get("is_milestone")), t["status"], t["progress"], t["sort_order"], t.get("scheduling_mode") or "fixed", bool(t.get("is_deleted")), t.get("deleted_at") or "", t.get("deleted_by") or "", t["created_at"], t["updated_at"]])
+        ws_tasks.append([t["uid"], t["project_uid"], t["parent_task_uid"] or "", t["name"], t["description"] or "", t["accountable_person"] or "", t["responsible_party"] or "", t["start_date"] or "", t["end_date"] or "", bool(t.get("is_milestone")), t.get("duration_days") or "", t["status"], t["progress"], t["sort_order"], t.get("scheduling_mode") or "fixed", bool(t.get("is_deleted")), t.get("deleted_at") or "", t.get("deleted_by") or "", t["created_at"], t["updated_at"]])
 
     # Dependencies
     ws_dep = wb.create_sheet("Dependencies")
@@ -448,8 +448,10 @@ def import_xlsx(content: bytes) -> dict:
     for row in rows_tasks:
         if row and row[0]:
             scheduling_mode = "fixed"
-            if len(row) >= 19 and row[13] and str(row[13]).strip().lower() in ("fixed", "auto"):
-                scheduling_mode = str(row[13]).strip().lower()
+            has_duration_column = len(row) >= 20
+            scheduling_index = 14 if has_duration_column else 13
+            if len(row) > scheduling_index and row[scheduling_index] and str(row[scheduling_index]).strip().lower() in ("fixed", "auto"):
+                scheduling_mode = str(row[scheduling_index]).strip().lower()
             tasks.append({
                 "uid": str(row[0]).strip(),
                 "project_uid": str(row[1]).strip() if row[1] else projects[0]["uid"],
@@ -461,15 +463,16 @@ def import_xlsx(content: bytes) -> dict:
                 "start_date": str(row[7]) if row[7] else None,
                 "end_date": str(row[8]) if row[8] else None,
                 "is_milestone": _as_bool(row[9]) if len(row) > 14 else False,
-                "status": str(row[10]) if len(row) > 14 and row[10] else (str(row[9]) if row[9] else "not_started"),
-                "progress": int(row[11]) if len(row) > 14 and row[11] is not None else (int(row[10]) if row[10] is not None else 0),
-                "sort_order": int(row[12]) if len(row) > 14 and row[12] is not None else (int(row[11]) if row[11] is not None else 0),
+                "duration_days": int(row[10]) if has_duration_column and row[10] is not None else 7,
+                "status": str(row[11]) if has_duration_column and row[11] else (str(row[10]) if len(row) > 14 and row[10] else (str(row[9]) if row[9] else "not_started")),
+                "progress": int(row[12]) if has_duration_column and row[12] is not None else (int(row[11]) if len(row) > 14 and row[11] is not None else (int(row[10]) if row[10] is not None else 0)),
+                "sort_order": int(row[13]) if has_duration_column and row[13] is not None else (int(row[12]) if len(row) > 14 and row[12] is not None else (int(row[11]) if row[11] is not None else 0)),
                 "scheduling_mode": scheduling_mode,
-                "is_deleted": _as_bool(row[14]) if len(row) > 18 else (_as_bool(row[13]) if len(row) > 17 else False),
-                "deleted_at": str(row[15]) if len(row) > 18 and row[15] else (str(row[14]) if len(row) > 17 and row[14] else None),
-                "deleted_by": str(row[16]) if len(row) > 18 and row[16] else (str(row[15]) if len(row) > 17 and row[15] else None),
-                "created_at": str(row[17]) if len(row) > 18 and row[17] else (str(row[16]) if len(row) > 17 and row[16] else (str(row[13]) if len(row) > 13 and row[13] else datetime.utcnow().isoformat() + "Z")),
-                "updated_at": str(row[18]) if len(row) > 18 and row[18] else (str(row[17]) if len(row) > 17 and row[17] else (str(row[14]) if len(row) > 14 and row[14] else datetime.utcnow().isoformat() + "Z")),
+                "is_deleted": _as_bool(row[15]) if has_duration_column and len(row) > 15 else (_as_bool(row[14]) if len(row) > 18 else (_as_bool(row[13]) if len(row) > 17 else False)),
+                "deleted_at": str(row[16]) if has_duration_column and len(row) > 16 and row[16] else (str(row[15]) if len(row) > 18 and row[15] else (str(row[14]) if len(row) > 17 and row[14] else None)),
+                "deleted_by": str(row[17]) if has_duration_column and len(row) > 17 and row[17] else (str(row[16]) if len(row) > 18 and row[16] else (str(row[15]) if len(row) > 17 and row[15] else None)),
+                "created_at": str(row[18]) if has_duration_column and len(row) > 18 and row[18] else (str(row[17]) if len(row) > 18 and row[17] else (str(row[16]) if len(row) > 17 and row[16] else (str(row[13]) if len(row) > 13 and row[13] else datetime.utcnow().isoformat() + "Z"))),
+                "updated_at": str(row[19]) if has_duration_column and len(row) > 19 and row[19] else (str(row[18]) if len(row) > 18 and row[18] else (str(row[17]) if len(row) > 17 and row[17] else (str(row[14]) if len(row) > 14 and row[14] else datetime.utcnow().isoformat() + "Z"))),
             })
 
     ws_dep = get_sheet("Dependencies")
@@ -609,9 +612,9 @@ def import_xlsx(content: bytes) -> dict:
             conn.execute("INSERT OR REPLACE INTO projects (uid, name, created_at) VALUES (?, ?, ?)", (p["uid"], p["name"], p["created_at"]))
         for t in tasks:
             conn.execute(
-                """INSERT OR REPLACE INTO tasks (uid, project_uid, parent_task_uid, name, description, accountable_person, responsible_party, start_date, end_date, is_milestone, status, progress, sort_order, scheduling_mode, is_deleted, deleted_at, deleted_by, created_at, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (t["uid"], t["project_uid"], t["parent_task_uid"], t["name"], t["description"], t["accountable_person"], t["responsible_party"], t["start_date"], t["end_date"], int(t.get("is_milestone", False)), t["status"], t["progress"], t["sort_order"], t.get("scheduling_mode", "fixed"), int(t.get("is_deleted", False)), t.get("deleted_at"), t.get("deleted_by"), t["created_at"], t["updated_at"]),
+                """INSERT OR REPLACE INTO tasks (uid, project_uid, parent_task_uid, name, description, accountable_person, responsible_party, start_date, end_date, is_milestone, duration_days, status, progress, sort_order, scheduling_mode, is_deleted, deleted_at, deleted_by, created_at, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (t["uid"], t["project_uid"], t["parent_task_uid"], t["name"], t["description"], t["accountable_person"], t["responsible_party"], t["start_date"], t["end_date"], int(t.get("is_milestone", False)), t.get("duration_days", 7), t["status"], t["progress"], t["sort_order"], t.get("scheduling_mode", "fixed"), int(t.get("is_deleted", False)), t.get("deleted_at"), t.get("deleted_by"), t["created_at"], t["updated_at"]),
             )
         for d in deps:
             conn.execute(

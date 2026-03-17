@@ -31,6 +31,7 @@ def init_db():
                 start_date TEXT,
                 end_date TEXT,
                 is_milestone INTEGER DEFAULT 0,
+                duration_days INTEGER DEFAULT 7,
                 status TEXT DEFAULT 'not_started',
                 progress INTEGER DEFAULT 0,
                 sort_order INTEGER DEFAULT 0,
@@ -126,6 +127,8 @@ def init_db():
             conn.execute("ALTER TABLE tasks ADD COLUMN deleted_by TEXT")
         if "scheduling_mode" not in task_columns:
             conn.execute("ALTER TABLE tasks ADD COLUMN scheduling_mode TEXT DEFAULT 'fixed'")
+        if "duration_days" not in task_columns:
+            conn.execute("ALTER TABLE tasks ADD COLUMN duration_days INTEGER DEFAULT 7")
 
 
 @contextmanager

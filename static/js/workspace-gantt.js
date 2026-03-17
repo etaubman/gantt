@@ -39,6 +39,14 @@ Gantt.gantt = (function() {
     return new Date(d.getFullYear(), d.getMonth(), 1);
   }
 
+  function getTimelineMarginDays(zoom) {
+    if (zoom === 'days') return 21;
+    if (zoom === 'weeks') return 45;
+    if (zoom === 'months') return 120;
+    if (zoom === 'quarters') return 270;
+    return 548;
+  }
+
   function buildTimeCells(minDate, end, pxPerDay, stepMode) {
     var cells = [];
     var cursor;
@@ -473,45 +481,31 @@ Gantt.gantt = (function() {
         if (d2 && (!maxDate || d2 > maxDate)) maxDate = d2;
       }
     });
+    var today = dateAtStart(new Date());
+    if (!minDate || today < minDate) minDate = today;
+    if (!maxDate || today > maxDate) maxDate = today;
     if (!minDate) minDate = new Date();
     if (!maxDate) maxDate = new Date(minDate.getTime() + 30 * dayMs);
     var minDateStart = dateAtStart(minDate);
-    minDateStart = new Date(minDateStart.getTime() - (7 * dayMs));
+    minDateStart = new Date(minDateStart.getTime() - (getTimelineMarginDays(zoom) * dayMs));
     var maxDateEnd = dateAtStart(maxDate);
-    maxDateEnd = new Date(maxDateEnd.getTime() + (14 * dayMs));
+    maxDateEnd = new Date(maxDateEnd.getTime() + (getTimelineMarginDays(zoom) * dayMs));
     var totalDays = Math.max(1, Math.ceil((maxDateEnd - minDateStart) / dayMs));
     var wrapWidth = el.ganttScrollWrap ? el.ganttScrollWrap.clientWidth : 0;
     var pxPerDay = basePxPerDay;
-    if (wrapWidth > 0) {
-      pxPerDay = Math.max(basePxPerDay, wrapWidth / totalDays);
-    }
-    var totalWidth = totalDays * pxPerDay;
+    var totalWidth = Math.max(totalDays * pxPerDay, wrapWidth || 0);
     var gridStepDays = zoom === 'days' ? 1 : 7;
     var gridColumnWidth = pxPerDay * gridStepDays;
 
     var timelineInner = el.ganttTimelineInner || document.getElementById('gantt-timeline-inner');
     if (timelineInner) {
       timelineInner.style.minWidth = totalWidth + 'px';
-      var existingToday = timelineInner.querySelector('.gantt-today-line');
-      if (existingToday) existingToday.remove();
-      var today = new Date();
-      today.setHours(0, 0, 0, 0);
+      timelineInner.querySelectorAll('.gantt-today-line').forEach(function(node) { node.remove(); });
       var daysFromStart = (today - minDateStart) / dayMs;
       var todayPx = Math.round(daysFromStart * pxPerDay);
       timelineInner.setAttribute('data-total-width', totalWidth);
       timelineInner.setAttribute('data-today-px', Math.max(0, Math.min(totalWidth, todayPx)));
       timelineInner.setAttribute('data-px-per-day', pxPerDay);
-      if (todayPx >= 0 && todayPx < totalWidth) {
-        var todayLine = document.createElement('div');
-        var headerHeight = ROW_HEIGHT;
-        var bodyHeight = tree.length * ROW_HEIGHT;
-        todayLine.className = 'gantt-today-line';
-        todayLine.style.left = todayPx + 'px';
-        todayLine.style.top = '0';
-        todayLine.style.height = (headerHeight + bodyHeight) + 'px';
-        todayLine.setAttribute('aria-hidden', 'true');
-        timelineInner.appendChild(todayLine);
-      }
     }
 
     var dateRangeEl = el.ganttDateRange || document.getElementById('gantt-date-range');
@@ -542,6 +536,19 @@ Gantt.gantt = (function() {
     bodyWeekend.className = 'gantt-weekend-overlay';
     bodyWeekend.style.background = weekendGradient;
     el.ganttBody.appendChild(bodyWeekend);
+    if (todayPx >= 0 && todayPx <= totalWidth) {
+      var headerToday = document.createElement('div');
+      headerToday.className = 'gantt-today-line gantt-today-line-header';
+      headerToday.style.left = todayPx + 'px';
+      headerToday.setAttribute('aria-hidden', 'true');
+      el.ganttHeader.appendChild(headerToday);
+      var bodyToday = document.createElement('div');
+      bodyToday.className = 'gantt-today-line gantt-today-line-body';
+      bodyToday.style.left = todayPx + 'px';
+      bodyToday.style.height = totalBodyHeight + 'px';
+      bodyToday.setAttribute('aria-hidden', 'true');
+      el.ganttBody.appendChild(bodyToday);
+    }
     if (tree.length === 0) {
       var emptyEl = document.createElement('div');
       emptyEl.className = 'gantt-empty-state';
@@ -568,8 +575,9 @@ Gantt.gantt = (function() {
       var isMilestone = !!t.is_milestone;
       var isCancelled = t.status === 'cancelled';
       var isPastDue = isTaskPastDue(t);
+      var isUnscheduled = !t.start_date || !t.end_date;
       var row = document.createElement('div');
-      row.className = 'gantt-row' + (selectedTaskUid === t.uid ? ' selected' : '') + (isCancelled ? ' cancelled' : '') + (isPastDue ? ' past-due' : '');
+      row.className = 'gantt-row' + (selectedTaskUid === t.uid ? ' selected' : '') + (isCancelled ? ' cancelled' : '') + (isPastDue ? ' past-due' : '') + (isUnscheduled ? ' gantt-row-unscheduled' : '');
       row.style.height = ROW_HEIGHT + 'px';
       row.setAttribute('data-uid', t.uid);
       var barWrap = document.createElement('div');
@@ -609,7 +617,7 @@ Gantt.gantt = (function() {
         bar.style.width = w + 'px';
         bar.innerHTML =
           '<span class="bar-label' + (isCancelled ? ' is-cancelled' : '') + '">' + escapeHtml(t.name) + '</span>' +
-          '<span class="bar-meta">' + progress + '%</span>';
+          '<span class="bar-meta">' + (isUnscheduled ? 'Unscheduled' : (progress + '%')) + '</span>';
       }
       bar.setAttribute('aria-label', t.name + ', ' + (isMilestone ? 'milestone, ' : '') + titleCaseStatus(t.status || 'not_started') + ', ' + progress + ' percent');
       if (!isMilestone && progress > 0) {
@@ -618,7 +626,12 @@ Gantt.gantt = (function() {
         progressEl.style.width = progress + '%';
         bar.appendChild(progressEl);
       }
-      if (!t.start_date || !t.end_date) bar.classList.add('bar-unscheduled');
+      if (isUnscheduled) {
+        bar.classList.add('bar-unscheduled');
+        if (!isMilestone) {
+          bar.insertAdjacentHTML('beforeend', '<span class="bar-unscheduled-badge">No dates</span>');
+        }
+      }
       if (isMilestone) {
         var milestoneLabel = document.createElement('div');
         milestoneLabel.className = 'gantt-milestone-label';

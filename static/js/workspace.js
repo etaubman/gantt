@@ -75,10 +75,10 @@ Gantt.workspace = (function() {
       if (lastVisibleTreeLength > VIRTUAL_THRESHOLD) scheduleVirtualScrollRender();
     });
     el.ganttScrollWrap.addEventListener('wheel', function(e) {
-      var useHorizontal = e.ctrlKey || e.metaKey || Math.abs(e.deltaX) > Math.abs(e.deltaY);
-      if (useHorizontal) {
+      var horizontalDelta = Math.abs(e.deltaX) > 0 ? e.deltaX : ((e.shiftKey || e.ctrlKey || e.metaKey) ? e.deltaY : 0);
+      if (horizontalDelta) {
         e.preventDefault();
-        el.ganttScrollWrap.scrollLeft += (e.deltaX !== 0 ? e.deltaX : e.deltaY);
+        el.ganttScrollWrap.scrollLeft += horizontalDelta;
       } else {
         e.preventDefault();
         el.taskTableWrap.scrollTop += e.deltaY;
@@ -178,10 +178,6 @@ Gantt.workspace = (function() {
       var tlIcon = (canTimelineEdit && state.isTimelineEditMode()) ? ICON_UNLOCK : ICON_LOCK;
       var tlText = state.isTimelineEditMode() ? 'Timeline editing on' : 'Timeline edit';
       el.btnTimelineEdit.innerHTML = tlIcon + '<span class="btn-text">' + tlText + '</span>';
-    }
-    if (el.ganttTimelineEditHint) {
-      var showHint = !!editMode && !!lockedBySelf && state.isTimelineEditMode();
-      el.ganttTimelineEditHint.hidden = !showHint;
     }
     if (el.btnImport) {
       var showImport = !!editMode && !!lockedBySelf;
@@ -748,6 +744,19 @@ Gantt.workspace = (function() {
     state.mergeTask(Object.assign({}, task, values));
     mergeAndRender();
     return api.patchTask(task.uid, values).then(function(updatedTask) {
+      var isScheduleEdit =
+        field === 'start' ||
+        field === 'end' ||
+        values.scheduling_mode ||
+        values.duration_days ||
+        Object.prototype.hasOwnProperty.call(values, 'start_date') ||
+        Object.prototype.hasOwnProperty.call(values, 'end_date');
+      if (isScheduleEdit) {
+        return reloadPlanData().then(function() {
+          showToast('Schedule updated');
+          return updatedTask;
+        });
+      }
       state.mergeTask(updatedTask);
       showToast((field === 'progress' ? 'Progress' : 'Task') + ' updated');
       mergeAndRender();
@@ -756,6 +765,14 @@ Gantt.workspace = (function() {
       if (prevTask) state.mergeTask(prevTask);
       mergeAndRender();
       showToast(e.message || 'Unable to save', true);
+    });
+  }
+
+  function reloadPlanData() {
+    return Promise.all([api.getTasks(), api.getDependencies()]).then(function(results) {
+      state.setTasks(Array.isArray(results[0]) ? results[0] : []);
+      state.setDependencies(Array.isArray(results[1]) ? results[1] : []);
+      mergeAndRender();
     });
   }
 
@@ -1009,10 +1026,11 @@ Gantt.workspace = (function() {
     }, isTimelineEdit && hasEditLock, function(taskUid, startDate, endDate) {
       ensureEditAccess(function() {
         api.patchTask(taskUid, { start_date: startDate, end_date: endDate })
-          .then(function(updatedTask) {
-            state.mergeTask(updatedTask);
+          .then(function() {
+            return reloadPlanData();
+          })
+          .then(function() {
             showToast('Dates updated');
-            mergeAndRender();
           })
           .catch(function(e) { showToast(e.message, true); });
       });
@@ -1027,26 +1045,10 @@ Gantt.workspace = (function() {
         api.postDependency({ predecessor_task_uid: predecessorUid, successor_task_uid: successorUid, dependency_type: 'FS' })
           .then(function(dep) {
             state.addDependency(dep);
-            var successorTask = tasks.find(function(t) { return t.uid === successorUid; });
-            var predecessorTask = tasks.find(function(t) { return t.uid === predecessorUid; });
-            if (successorTask && predecessorTask && (!successorTask.start_date || !successorTask.end_date)) {
-              var predEnd = predecessorTask.end_date ? new Date(predecessorTask.end_date) : new Date();
-              var startStr = predEnd.toISOString().slice(0, 10);
-              var endDate = new Date(predEnd.getTime() + 7 * 24 * 60 * 60 * 1000);
-              var endStr = endDate.toISOString().slice(0, 10);
-              return api.patchTask(successorUid, { start_date: startStr, end_date: endStr })
-                .then(function(updatedTask) {
-                  state.mergeTask(updatedTask);
-                  showToast('Dependency added and task scheduled');
-                  mergeAndRender();
-                })
-                .catch(function(e) {
-                  showToast(e.message || 'Could not schedule task', true);
-                  mergeAndRender();
-                });
-            }
+            return reloadPlanData();
+          })
+          .then(function() {
             showToast('Dependency added');
-            mergeAndRender();
           })
           .catch(function(e) { showToast(e.message, true); });
       });
@@ -1357,6 +1359,7 @@ Gantt.workspace = (function() {
   return {
     run: run,
     refreshAll: refreshAll,
+    reloadPlanData: reloadPlanData,
     ensureEditAccess: ensureEditAccess,
     isEditMode: function() { return state.isEditMode(); },
     getEmployeeId: function() { return state.getEmployeeId(); }

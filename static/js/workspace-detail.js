@@ -58,6 +58,72 @@ Gantt.detail = (function() {
     '</div>';
   }
 
+  function getDurationDays(task) {
+    if (!task) return 7;
+    if (task.is_milestone) return 1;
+    var raw = parseInt(task.duration_days, 10);
+    if (!isNaN(raw) && raw > 0) return raw;
+    if (task.start_date && task.end_date) {
+      var start = new Date(task.start_date);
+      var end = new Date(task.end_date);
+      if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+        return Math.max(1, Math.round((end - start) / (24 * 60 * 60 * 1000)) + 1);
+      }
+    }
+    return 7;
+  }
+
+  function formatScheduleLabel(task) {
+    if (!task) return 'Unscheduled';
+    if (!task.start_date || !task.end_date) return task.is_milestone ? 'Unscheduled milestone' : 'Unscheduled task';
+    if (task.is_milestone) return prettyDate(task.start_date || task.end_date);
+    return prettyDate(task.start_date) + ' - ' + prettyDate(task.end_date);
+  }
+
+  function renderSchedulingModeButtons(mode) {
+    var selectedMode = mode === 'auto' ? 'auto' : 'fixed';
+    return '<div class="schedule-mode-toggle" data-schedule-mode-toggle>' +
+      '<button type="button" class="schedule-mode-btn' + (selectedMode === 'fixed' ? ' is-active' : '') + '" data-schedule-mode="fixed">Fixed</button>' +
+      '<button type="button" class="schedule-mode-btn' + (selectedMode === 'auto' ? ' is-active' : '') + '" data-schedule-mode="auto">Auto</button>' +
+      '</div>' +
+      '<input type="hidden" id="detail-scheduling-mode" value="' + escapeHtml(selectedMode) + '" />';
+  }
+
+  function bindScheduleControls(root) {
+    if (!root) return;
+    var modeInput = root.querySelector('#detail-scheduling-mode');
+    var durationInput = root.querySelector('#detail-duration');
+    var startInput = root.querySelector('#detail-start');
+    var endInput = root.querySelector('#detail-end');
+    var milestoneInput = root.querySelector('#detail-is-milestone');
+    var hint = root.querySelector('[data-schedule-hint]');
+    var durationField = durationInput && durationInput.closest('.field');
+    function sync() {
+      var mode = modeInput ? (modeInput.value || 'fixed') : 'fixed';
+      var isMilestone = !!(milestoneInput && milestoneInput.checked);
+      var disableDates = isMilestone || mode === 'auto';
+      if (startInput) startInput.disabled = disableDates;
+      if (endInput) endInput.disabled = disableDates;
+      if (durationInput) durationInput.disabled = isMilestone;
+      if (durationField) durationField.classList.toggle('is-disabled', !!(durationInput && durationInput.disabled));
+      if (hint) {
+        hint.hidden = !(mode === 'auto' && !isMilestone);
+      }
+      root.querySelectorAll('[data-schedule-mode]').forEach(function(btn) {
+        btn.classList.toggle('is-active', btn.getAttribute('data-schedule-mode') === mode);
+      });
+    }
+    root.querySelectorAll('[data-schedule-mode]').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        if (!modeInput) return;
+        modeInput.value = btn.getAttribute('data-schedule-mode') || 'fixed';
+        sync();
+      });
+    });
+    if (milestoneInput) milestoneInput.addEventListener('change', sync);
+    sync();
+  }
+
   function openTaskModal() {
     var el = Gantt.state.getEl();
     if (el.taskDetailModal) {
@@ -103,9 +169,7 @@ Gantt.detail = (function() {
       lastRenderedTaskUid = selectedTaskUid;
     }
 
-    var scheduleLabel = task.is_milestone
-      ? prettyDate(task.start_date || task.end_date)
-      : (prettyDate(task.start_date) + ' - ' + prettyDate(task.end_date));
+    var scheduleLabel = formatScheduleLabel(task);
 
     if (el.taskDetailModalTitle) el.taskDetailModalTitle.textContent = task.name || 'Edit task';
     el.detailContent.innerHTML =
@@ -155,12 +219,11 @@ Gantt.detail = (function() {
                 '<div class="field"><label>' + (task.is_milestone ? 'Milestone date' : 'Start date') + '</label><input type="date" id="detail-start" value="' + dateStr(task.start_date) + '" /></div>' +
                 '<div class="field"><label>' + (task.is_milestone ? 'Mirror date' : 'End date') + '</label><input type="date" id="detail-end" value="' + dateStr(task.end_date) + '" /></div>' +
               '</div>' +
-              '<div class="field"><label>Scheduling</label>' +
-                '<select id="detail-scheduling-mode">' +
-                  '<option value="fixed"' + ((task.scheduling_mode || 'fixed') === 'fixed' ? ' selected' : '') + '>Fixed (manual dates)</option>' +
-                  '<option value="auto"' + ((task.scheduling_mode || 'fixed') === 'auto' ? ' selected' : '') + '>Auto (dates from dependencies)</option>' +
-                '</select>' +
+              '<div class="form-row detail-schedule-row">' +
+                '<div class="field detail-schedule-mode-field"><label>Scheduling</label>' + renderSchedulingModeButtons(task.scheduling_mode || 'fixed') + '</div>' +
+                '<div class="field"><label>Duration (days)</label><input type="number" id="detail-duration" min="1" value="' + getDurationDays(task) + '" /></div>' +
               '</div>' +
+              '<div class="detail-inline-note" data-schedule-hint hidden>Auto scheduling keeps this task aligned to its dependencies and uses duration to set its span.</div>' +
               '<div class="detail-danger-zone">' +
                 '<div class="detail-danger-copy">' +
                   '<div class="detail-danger-title">Remove from plan view</div>' +
@@ -182,7 +245,10 @@ Gantt.detail = (function() {
                 readonlyField(task.is_milestone ? 'Milestone date' : 'Start date', prettyDate(task.start_date)) +
                 readonlyField(task.is_milestone ? 'Mirror date' : 'End date', prettyDate(task.end_date)) +
               '</div>' +
-              readonlyField('Scheduling', (task.scheduling_mode || 'fixed') === 'auto' ? 'Auto' : 'Fixed'))) +
+              '<div class="form-row">' +
+                readonlyField('Scheduling', (task.scheduling_mode || 'fixed') === 'auto' ? 'Auto' : 'Fixed') +
+                readonlyField('Duration (days)', String(getDurationDays(task))) +
+              '</div>')) +
         '</div>' +
       '</div>' +
       '<div class="detail-tab-panel' + (activeTabName === 'health' ? ' is-active' : '') + '" data-tab-panel="health"' + (activeTabName === 'health' ? '' : ' hidden') + '>' +
@@ -306,6 +372,7 @@ Gantt.detail = (function() {
         activateTab(btn.getAttribute('data-tab-btn'));
       });
     });
+    bindScheduleControls(el.detailContent);
 
     // Save task
     var detailSaveBtn = document.getElementById('detail-save');
@@ -329,6 +396,7 @@ Gantt.detail = (function() {
           start_date: startDate,
           end_date: endDate,
           is_milestone: isMilestone,
+          duration_days: Math.max(1, parseInt(document.getElementById('detail-duration').value, 10) || 1),
           status: document.getElementById('detail-status').value,
           progress: parseInt(document.getElementById('detail-progress').value, 10) || 0
         };
@@ -339,6 +407,9 @@ Gantt.detail = (function() {
               state.mergeTask(updatedTask);
               showToast('Task saved');
               flashButtonSuccess('detail-save', 'Saved');
+              if (workspace.reloadPlanData) {
+                return workspace.reloadPlanData();
+              }
               if (mergeAndRender) mergeAndRender();
             })
             .catch(function(e) { showToast(e.message, true); });
@@ -601,6 +672,9 @@ Gantt.detail = (function() {
           state.addDependency(dep);
           showToast('Dependency added');
           flashButtonSuccess('dep-add', 'Added');
+          if (workspace.reloadPlanData) {
+            return workspace.reloadPlanData();
+          }
           if (mergeAndRender) mergeAndRender();
         }).catch(function(e) { showToast(e.message, true); });
       });
@@ -626,6 +700,9 @@ Gantt.detail = (function() {
             .then(function() {
               state.removeDependency(uid);
               showToast('Dependency removed');
+              if (workspace.reloadPlanData) {
+                return workspace.reloadPlanData();
+              }
               if (mergeAndRender) mergeAndRender();
             })
             .catch(function(e) { showToast(e.message, true); });

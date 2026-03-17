@@ -286,6 +286,51 @@
 }
 .task-detail-modal .form-row { display: flex; gap: 0.75rem; margin-bottom: 0.85rem; }
 .task-detail-modal .form-row .field { flex: 1; margin-bottom: 0; }
+.task-detail-modal .detail-schedule-row {
+  align-items: flex-end;
+}
+.task-detail-modal .detail-schedule-mode-field {
+  flex: 1.4;
+}
+.task-detail-modal .schedule-mode-toggle {
+  display: inline-flex;
+  width: 100%;
+  padding: 0.28rem;
+  border-radius: 999px;
+  border: 1px solid rgba(115, 131, 154, 0.22);
+  background: rgba(255,255,255,0.04);
+  gap: 0.28rem;
+}
+.task-detail-modal .schedule-mode-btn {
+  flex: 1 1 0;
+  min-height: 40px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+}
+.task-detail-modal .schedule-mode-btn.is-active {
+  background: linear-gradient(180deg, rgba(97, 168, 255, 0.18) 0%, rgba(97, 168, 255, 0.1) 100%);
+  color: #d8ebff;
+  box-shadow: 0 6px 18px rgba(15, 30, 56, 0.24);
+}
+.task-detail-modal .detail-inline-note {
+  margin: -0.15rem 0 0.95rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 12px;
+  border: 1px solid rgba(97, 168, 255, 0.12);
+  background: rgba(97, 168, 255, 0.05);
+  color: #bddcff;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+.task-detail-modal .field.is-disabled input {
+  opacity: 0.6;
+}
 .task-detail-modal .detail-toggle-row {
   display: inline-flex;
   align-items: center;
