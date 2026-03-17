@@ -47,42 +47,53 @@
           <span class="panel-badge" id="task-count-badge">0</span>
         </div>
         <div class="panel-toolbar task-panel-toolbar">
-          <div class="task-toolbar-group task-toolbar-group-domain task-toolbar-group-stacked">
-            <label for="domain-filter-select" class="task-toolbar-label">Domain</label>
-            <select id="domain-filter-select" class="task-filter-select" aria-label="Filter tasks by domain">
-              <option value="all">All domains</option>
-            </select>
+          <div class="task-toolbar-filters">
+            <div class="task-toolbar-group task-toolbar-group-domain task-toolbar-group-stacked">
+              <label for="domain-filter-select" class="task-toolbar-label">Domain</label>
+              <select id="domain-filter-select" class="task-filter-select" aria-label="Filter tasks by domain">
+                <option value="all">All domains</option>
+              </select>
+            </div>
+            <div class="task-toolbar-divider" aria-hidden="true"></div>
+            <div class="task-toolbar-group task-toolbar-group-compact task-toolbar-group-stacked">
+              <label for="accountable-filter-select" class="task-toolbar-label">Accountable</label>
+              <select id="accountable-filter-select" class="task-filter-select" aria-label="Filter tasks by accountable">
+                <option value="all">All accountable</option>
+              </select>
+            </div>
+            <div class="task-toolbar-group task-toolbar-group-compact task-toolbar-group-stacked">
+              <label for="responsible-filter-select" class="task-toolbar-label">Responsible</label>
+              <select id="responsible-filter-select" class="task-filter-select" aria-label="Filter tasks by responsible">
+                <option value="all">All responsible</option>
+              </select>
+            </div>
+            <div class="task-toolbar-group task-toolbar-group-compact task-toolbar-group-stacked">
+              <label for="rag-filter-select" class="task-toolbar-label">RAG</label>
+              <select id="rag-filter-select" class="task-filter-select" aria-label="Filter tasks by rag status">
+                <option value="all">All RAG</option>
+              </select>
+            </div>
+            <div class="task-toolbar-group task-toolbar-group-compact task-toolbar-group-stacked">
+              <label for="status-filter-select" class="task-toolbar-label">Status</label>
+              <select id="status-filter-select" class="task-filter-select" aria-label="Filter tasks by status">
+                <option value="all">All status</option>
+              </select>
+            </div>
           </div>
-          <button type="button" class="btn btn-ghost" id="btn-add-top-level-task" title="Add a new top-level task">Add top-level task</button>
-          <button type="button" class="btn btn-ghost" id="btn-expand-all" title="Expand all">Expand all</button>
-          <button type="button" class="btn btn-ghost" id="btn-collapse-all" title="Collapse all">Collapse all</button>
-          <div class="task-toolbar-group task-toolbar-group-compact task-toolbar-group-stacked">
-            <label for="accountable-filter-select" class="task-toolbar-label">Accountable</label>
-            <select id="accountable-filter-select" class="task-filter-select" aria-label="Filter tasks by accountable">
-              <option value="all">All accountable</option>
-            </select>
+          <div class="task-toolbar-divider task-toolbar-divider-main" aria-hidden="true"></div>
+          <div class="task-toolbar-actions">
+            <button type="button" class="btn btn-secondary task-toolbar-add-btn" id="btn-add-top-level-task" title="Add a new top-level task">Add top-level task</button>
+            <div class="task-toolbar-expand-group">
+              <button type="button" class="btn btn-ghost task-toolbar-icon-btn" id="btn-expand-all" title="Expand all">Expand all</button>
+              <button type="button" class="btn btn-ghost task-toolbar-icon-btn" id="btn-collapse-all" title="Collapse all">Collapse all</button>
+            </div>
           </div>
-          <div class="task-toolbar-group task-toolbar-group-compact task-toolbar-group-stacked">
-            <label for="responsible-filter-select" class="task-toolbar-label">Responsible</label>
-            <select id="responsible-filter-select" class="task-filter-select" aria-label="Filter tasks by responsible">
-              <option value="all">All responsible</option>
-            </select>
+          <div class="task-toolbar-divider" aria-hidden="true"></div>
+          <div class="task-toolbar-utils">
+            <button type="button" class="btn btn-ghost task-focus-btn" id="btn-focus-task" title="Focus on the selected task and its lineage">Focus selected</button>
+            <span class="task-filter-summary" id="task-filter-summary">All filters off</span>
+            <button type="button" class="btn btn-ghost task-clear-filters-btn" id="btn-clear-filters" title="Clear accountable, responsible, RAG, and status filters">Clear filters</button>
           </div>
-          <div class="task-toolbar-group task-toolbar-group-compact task-toolbar-group-stacked">
-            <label for="rag-filter-select" class="task-toolbar-label">RAG</label>
-            <select id="rag-filter-select" class="task-filter-select" aria-label="Filter tasks by rag status">
-              <option value="all">All RAG</option>
-            </select>
-          </div>
-          <div class="task-toolbar-group task-toolbar-group-compact task-toolbar-group-stacked">
-            <label for="status-filter-select" class="task-toolbar-label">Status</label>
-            <select id="status-filter-select" class="task-filter-select" aria-label="Filter tasks by status">
-              <option value="all">All status</option>
-            </select>
-          </div>
-          <button type="button" class="btn btn-ghost task-focus-btn" id="btn-focus-task" title="Focus on the selected task and its lineage">Focus selected</button>
-          <span class="task-filter-summary" id="task-filter-summary">All filters off</span>
-          <button type="button" class="btn btn-ghost task-clear-filters-btn" id="btn-clear-filters" title="Clear accountable, responsible, RAG, and status filters">Clear filters</button>
         </div>
         <div class="task-table" id="task-table-wrap">
           <table>
