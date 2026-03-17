@@ -3,8 +3,11 @@ import os
 import sqlite3
 from contextlib import contextmanager
 
-_DEFAULT_DB = os.path.join(os.path.dirname(__file__), "..", "data", "gantt.db")
-DB_PATH = os.environ.get("GANTT_DB_PATH", _DEFAULT_DB)
+_DEFAULT_DB = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "data", "gantt.db")
+)
+_raw_path = os.environ.get("GANTT_DB_PATH", _DEFAULT_DB)
+DB_PATH = os.path.abspath(os.path.expanduser(_raw_path))
 
 
 def init_db():

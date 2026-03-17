@@ -583,12 +583,22 @@ Gantt.table = (function() {
     if (!el.taskTbody) return;
     var rowHeight = Gantt.state.getConstants().ROW_HEIGHT;
     var rowsSource = treeToRender || visibleTree;
+    var visibleCount = (visibleTree || []).length;
+    var tasks = Gantt.state.getTasks();
+    var hasFilters = Gantt.state.getSelectedAccountable() !== 'all' || Gantt.state.getSelectedResponsible() !== 'all' ||
+      Gantt.state.getSelectedRag() !== 'all' || Gantt.state.getSelectedStatus() !== 'all' || Gantt.state.getSelectedDomainUid() !== 'all';
+    var isEmpty = visibleCount === 0;
+    var emptyMessage = tasks.length === 0
+      ? 'No tasks yet. Add a top-level task to get started.'
+      : (hasFilters ? 'No tasks match your filters. Try clearing filters.' : 'No tasks to display.');
     var spacerHtml = function(h) {
       return '<tr class="virtual-spacer" aria-hidden="true"><td colspan="9" style="height:' + h + 'px;padding:0;border:none;line-height:0"></td></tr>';
     };
+    var emptyRowHtml = '<tr class="task-empty-state" aria-live="polite"><td colspan="9" class="task-empty-cell">' +
+      '<div class="task-empty-content"><p class="task-empty-message">' + escapeHtml(emptyMessage) + '</p></div></td></tr>';
     var topSpacer = viewport && viewport.start > 0 ? [spacerHtml(viewport.start * rowHeight)] : [];
     var bottomSpacer = viewport && viewport.end < viewport.total ? [spacerHtml((viewport.total - viewport.end) * rowHeight)] : [];
-    var rowHtmls = topSpacer.concat(rowsSource.map(function(t) {
+    var rowHtmls = isEmpty ? [emptyRowHtml] : topSpacer.concat(rowsSource.map(function(t) {
       var rag = taskRag[t.uid] || 'none';
       var milestoneMarker = t.is_milestone ? '<span class="task-milestone-marker" aria-hidden="true"></span>' : '';
       var indent = 'indent-' + Math.min(t.depth, 3);

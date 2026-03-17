@@ -97,6 +97,12 @@
   font-size: 0.92rem;
 }
 
+.project-meta.load-failed {
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .workspace-mode-indicator {
   display: inline-flex;
   align-items: center;
@@ -152,6 +158,8 @@
 
 .workspace-server-indicator::before {
   content: '';
+  display: block;
+  flex-shrink: 0;
   width: 0.5rem;
   height: 0.5rem;
   border-radius: 999px;
@@ -245,22 +253,21 @@
 
 .task-panel .panel-toolbar,
 .gantt-toolbar {
-  min-height: 70px;
-  max-height: 70px;
-  padding: 0.75rem 1rem;
+  min-height: 52px;
+  padding: 0.5rem 1rem;
   display: flex;
   align-items: center;
-  gap: 0.65rem;
-  flex-wrap: nowrap;
+  gap: 0.75rem;
+  flex-wrap: wrap;
   overflow-x: auto;
   overflow-y: hidden;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
-  background: rgba(255,255,255,0.03);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.02);
   flex-shrink: 0;
 }
 
 .task-panel-toolbar {
-  gap: 0;
+  gap: 0.5rem;
   align-items: center;
 }
 
@@ -271,21 +278,24 @@
 .task-toolbar-filters {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.6rem;
   flex: 0 1 auto;
   min-width: 0;
+  flex-wrap: wrap;
 }
 
 .task-toolbar-divider {
   width: 1px;
   min-width: 1px;
-  align-self: stretch;
-  background: rgba(255,255,255,0.06);
-  margin: 0 0.5rem;
+  height: 24px;
+  align-self: center;
+  background: rgba(255,255,255,0.08);
+  margin: 0 0.25rem;
+  border-radius: 1px;
 }
 
 .task-toolbar-divider-main {
-  margin: 0 0.75rem;
+  margin: 0 0.5rem;
 }
 
 .task-toolbar-actions {
@@ -296,21 +306,21 @@
 }
 
 .task-toolbar-add-btn {
-  min-height: 32px;
-  padding: 0 1rem;
-  font-size: 0.82rem;
+  min-height: 30px;
+  padding: 0 0.85rem;
+  font-size: 0.8rem;
 }
 
 .task-toolbar-expand-group {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.2rem;
 }
 
 .task-toolbar-icon-btn {
-  min-height: 32px;
-  padding: 0 0.65rem;
-  font-size: 0.78rem;
+  min-height: 30px;
+  padding: 0 0.5rem;
+  font-size: 0.76rem;
 }
 
 .task-toolbar-utils {
@@ -339,39 +349,39 @@
 .task-toolbar-group-stacked {
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.18rem;
+  gap: 0.12rem;
 }
 
 .task-toolbar-label {
-  font-size: 0.64rem;
-  font-weight: 700;
+  font-size: 0.6rem;
+  font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.08em;
   line-height: 1;
 }
 
 .task-filter-select {
-  min-height: 32px;
-  min-width: 170px;
-  padding: 0 2rem 0 0.72rem;
-  border: 1px solid var(--border-default);
-  border-radius: 999px;
-  background: rgba(255,255,255,0.03);
+  min-height: 30px;
+  min-width: 140px;
+  padding: 0 1.75rem 0 0.6rem;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.04);
   color: var(--text-primary);
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   line-height: 1;
   appearance: none;
   -webkit-appearance: none;
   background-image:
-    linear-gradient(45deg, transparent 50%, #9fb2ca 50%),
-    linear-gradient(135deg, #9fb2ca 50%, transparent 50%);
+    linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
+    linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
   background-position:
-    calc(100% - 15px) calc(50% - 1px),
-    calc(100% - 10px) calc(50% - 1px);
-  background-size: 5px 5px, 5px 5px;
+    calc(100% - 12px) calc(50% - 1px),
+    calc(100% - 8px) calc(50% - 1px);
+  background-size: 4px 4px, 4px 4px;
   background-repeat: no-repeat;
-  transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease, color 0.16s ease;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 
 .task-filter-select:hover,
@@ -524,6 +534,44 @@
 
 .task-table tbody tr.selected:hover {
   background: linear-gradient(90deg, rgba(97, 168, 255, 0.16) 0%, rgba(97, 168, 255, 0.05) 100%);
+}
+
+.task-empty-state .task-empty-cell {
+  padding: 0;
+  border: none;
+  vertical-align: middle;
+}
+
+.task-empty-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 160px;
+  padding: 2rem;
+}
+
+.task-empty-message {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  text-align: center;
+  max-width: 320px;
+}
+
+.gantt-empty-state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.gantt-empty-message {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  text-align: center;
 }
 
 .task-table tbody tr.task-row-past-due {
@@ -1805,79 +1853,95 @@
 .gantt-toolbar-group {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.35rem;
 }
 
 .gantt-toolbar-group-stacked {
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.18rem;
+  gap: 0.12rem;
 }
 
 .gantt-toolbar-label {
-  font-size: 0.64rem;
-  font-weight: 700;
+  font-size: 0.6rem;
+  font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.08em;
   line-height: 1;
 }
 
 .gantt-zoom-select {
-  min-height: 32px;
-  padding: 0 2rem 0 0.72rem;
-  border: 1px solid var(--border-default);
-  border-radius: 999px;
-  background: rgba(255,255,255,0.03);
+  min-height: 30px;
+  padding: 0 1.75rem 0 0.6rem;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.04);
   color: var(--text-primary);
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   line-height: 1;
   appearance: none;
   -webkit-appearance: none;
   background-image:
-    linear-gradient(45deg, transparent 50%, #9fb2ca 50%),
-    linear-gradient(135deg, #9fb2ca 50%, transparent 50%);
+    linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
+    linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
   background-position:
-    calc(100% - 15px) calc(50% - 1px),
-    calc(100% - 10px) calc(50% - 1px);
-  background-size: 5px 5px, 5px 5px;
+    calc(100% - 12px) calc(50% - 1px),
+    calc(100% - 8px) calc(50% - 1px);
+  background-size: 4px 4px, 4px 4px;
   background-repeat: no-repeat;
 }
 
 .gantt-toolbar-btn {
   display: inline-flex;
   align-items: center;
-  min-height: 32px;
-  padding: 0 0.75rem;
+  min-height: 30px;
+  padding: 0 0.6rem;
+  font-size: 0.82rem;
+  border-radius: 6px;
 }
 
-
 .gantt-toolbar-btn.is-active {
-  background: rgba(97, 168, 255, 0.18);
-  border-color: rgba(97, 168, 255, 0.35);
+  background: rgba(97, 168, 255, 0.14);
+  border-color: rgba(97, 168, 255, 0.25);
   color: #77b6ff;
 }
 
-.gantt-pan-btn {
-  min-width: 36px;
-  padding: 0;
+.gantt-pan-btn,
+.gantt-zoom-btn {
+  min-width: 32px;
+  padding: 0 0.4rem;
+  font-size: 1rem;
+  line-height: 1;
 }
 
 .gantt-date-range-wrap {
   flex: 1;
   min-width: 180px;
   justify-content: center;
+  gap: 0.5rem;
+}
+
+.gantt-drag-feedback {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  background: rgba(167, 139, 250, 0.2);
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
 .gantt-date-range {
   display: inline-flex;
   align-items: center;
-  min-height: 30px;
-  padding: 0 0.75rem;
-  border-radius: 999px;
-  background: rgba(255,255,255,0.04);
+  min-height: 28px;
+  padding: 0 0.6rem;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.03);
   color: var(--text-secondary);
-  font-size: 0.78rem;
+  font-size: 0.76rem;
 }
 
 .gantt-scroll-wrap {
@@ -1906,11 +1970,11 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 1px;
-  background: rgba(255, 119, 119, 0.7);
+  width: 2px;
+  background: #ff6b6b;
   z-index: 4;
   pointer-events: none;
-  box-shadow: 0 0 8px rgba(255, 119, 119, 0.15);
+  box-shadow: 0 0 12px rgba(255, 107, 107, 0.5), 0 0 24px rgba(255, 107, 107, 0.2);
 }
 
 .gantt-today-line::before {
@@ -1918,15 +1982,16 @@
   position: absolute;
   top: 8px;
   left: 8px;
-  padding: 0.15rem 0.45rem;
+  padding: 0.2rem 0.5rem;
   border-radius: 999px;
-  background: rgba(255, 119, 119, 0.14);
+  background: rgba(255, 107, 107, 0.25);
   color: #ff8d8d;
-  font-size: 0.66rem;
+  font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.12em;
   white-space: nowrap;
+  box-shadow: 0 0 8px rgba(255, 107, 107, 0.3);
 }
 
 .gantt-weekend-overlay {
@@ -2227,10 +2292,20 @@
   pointer-events: none;
 }
 
+.gantt-timeline-edit-hint {
+  display: inline-block;
+  margin-left: 0.25rem;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.68rem;
+  color: rgba(255, 255, 255, 0.55);
+  background: rgba(167, 139, 250, 0.1);
+  border-radius: 4px;
+}
+
 .gantt-dep-dot {
   position: absolute;
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   border: 1.5px solid rgba(167, 139, 250, 0.6);
   background: rgba(18, 26, 38, 0.95);
@@ -2238,6 +2313,15 @@
   z-index: 6;
   pointer-events: auto;
   transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.gantt-body.gantt-drawing-dependency .gantt-dep-dot-target {
+  animation: gantt-dep-dot-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes gantt-dep-dot-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(167, 139, 250, 0.3); }
+  50% { box-shadow: 0 0 0 4px rgba(167, 139, 250, 0); }
 }
 
 .gantt-dep-dot:hover {
@@ -2248,7 +2332,7 @@
 
 .gantt-dep-dot-left,
 .gantt-dep-dot-right {
-  margin-left: -5px;
+  margin-left: -6px;
 }
 
 .gantt-dep-dot-target {

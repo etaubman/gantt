@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="/static/css/main.css" />
 </head>
 <body>
   <div class="workspace">
@@ -21,7 +21,7 @@
       </div>
       <div class="header-actions">
         <div class="header-status-group">
-          <span class="workspace-server-indicator is-unknown" id="workspace-server-indicator">Checking server...</span>
+          <span class="workspace-server-indicator is-unknown" id="workspace-server-indicator" aria-live="polite" aria-label="Server status">Checking server...</span>
           <span class="workspace-mode-indicator" id="workspace-mode-indicator">Read only</span>
         </div>
         <div class="header-action-group header-action-group-edit">
@@ -102,27 +102,33 @@
           </table>
         </div>
       </div>
-      <div class="gantt-panel">
+      <div class="gantt-panel" id="gantt-panel">
         <div class="panel-label">
           <span>Timeline</span>
           <span class="panel-badge" id="timeline-summary-badge">Plan view</span>
         </div>
         <div class="gantt-toolbar" aria-label="Timeline controls">
           <button type="button" class="btn btn-ghost gantt-toolbar-btn" id="btn-timeline-edit" title="Edit dates and dependencies on the timeline">Timeline edit</button>
-          <div class="gantt-toolbar-group gantt-toolbar-group-stacked">
+          <span id="gantt-timeline-edit-hint" class="gantt-timeline-edit-hint" aria-live="polite" hidden>Drag bars to resize • Drag dots to create dependencies</span>
+          <div class="gantt-toolbar-group gantt-toolbar-group-zoom">
             <label for="gantt-zoom-select" class="gantt-toolbar-label">Zoom</label>
-            <select id="gantt-zoom-select" class="gantt-zoom-select" aria-label="Timeline zoom">
-              <option value="years">Years</option>
-              <option value="quarters">Quarters</option>
-              <option value="months" selected>Months</option>
-              <option value="weeks">Weeks</option>
-              <option value="days">Days</option>
-            </select>
+            <div class="gantt-zoom-controls">
+              <button type="button" class="btn btn-ghost gantt-toolbar-btn gantt-zoom-btn" id="gantt-zoom-out" title="Zoom out" aria-label="Zoom out">−</button>
+              <select id="gantt-zoom-select" class="gantt-zoom-select" aria-label="Timeline zoom">
+                <option value="years">Years</option>
+                <option value="quarters">Quarters</option>
+                <option value="months" selected>Months</option>
+                <option value="weeks">Weeks</option>
+                <option value="days">Days</option>
+              </select>
+              <button type="button" class="btn btn-ghost gantt-toolbar-btn gantt-zoom-btn" id="gantt-zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
+            </div>
           </div>
           <div class="gantt-toolbar-group">
             <button type="button" class="btn btn-ghost gantt-toolbar-btn" id="gantt-reset-view" title="Center view on today">Reset view</button>
           </div>
           <div class="gantt-toolbar-group gantt-date-range-wrap">
+            <span id="gantt-drag-feedback" class="gantt-drag-feedback" aria-live="polite" hidden></span>
             <span id="gantt-date-range" class="gantt-date-range" aria-label="Timeline date range"></span>
           </div>
           <div class="gantt-toolbar-group">
@@ -158,15 +164,15 @@
     </div>
   </div>
 
-  <script src="/js/utils.js"></script>
-  <script src="/js/api.js"></script>
-  <script src="/js/rag-tooltip.js"></script>
-  <script src="/js/audit-log.js"></script>
-  <script src="/js/workspace-state.js"></script>
-  <script src="/js/workspace-table.js"></script>
-  <script src="/js/workspace-gantt.js"></script>
-  <script src="/js/workspace-detail.js"></script>
-  <script src="/js/workspace.js"></script>
-  <script>Gantt.workspace.run();</script>
+  <script src="/static/js/utils.js?v=7"></script>
+  <script src="/static/js/api.js?v=7"></script>
+  <script src="/static/js/rag-tooltip.js?v=7"></script>
+  <script src="/static/js/audit-log.js?v=7"></script>
+  <script src="/static/js/workspace-state.js?v=7"></script>
+  <script src="/static/js/workspace-table.js?v=7"></script>
+  <script src="/static/js/workspace-gantt.js?v=7"></script>
+  <script src="/static/js/workspace-detail.js?v=7"></script>
+  <script src="/static/js/workspace.js?v=7"></script>
+  <script>window.Gantt.workspace.run();</script>
 </body>
 </html>

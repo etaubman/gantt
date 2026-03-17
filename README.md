@@ -10,6 +10,8 @@ docker-compose up --build
 
 Open http://localhost:8000 in your browser. Data is stored in a Docker volume (`gantt_data`).
 
+**Data persistence**: Imported data and edits persist across container restarts as long as you do **not** use `docker compose down -v`. The `-v` flag removes volumes and wipes the database. Use `docker compose down` (without `-v`) to stop while keeping data.
+
 ## Run locally without Docker
 
 Recommended Python version: `3.12`
@@ -67,7 +69,7 @@ On a fresh database, the app automatically creates the default project and these
 
 This seed only runs when the project has no tasks yet. If data already exists, startup will not add them again.
 
-To reseed with Docker:
+To reseed with Docker (this **deletes all data** in the volume):
 
 ```powershell
 docker compose down -v

@@ -75,9 +75,14 @@ Gantt.workspace = (function() {
       if (lastVisibleTreeLength > VIRTUAL_THRESHOLD) scheduleVirtualScrollRender();
     });
     el.ganttScrollWrap.addEventListener('wheel', function(e) {
-      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
-      e.preventDefault();
-      el.taskTableWrap.scrollTop += e.deltaY;
+      var useHorizontal = e.ctrlKey || e.metaKey || Math.abs(e.deltaX) > Math.abs(e.deltaY);
+      if (useHorizontal) {
+        e.preventDefault();
+        el.ganttScrollWrap.scrollLeft += (e.deltaX !== 0 ? e.deltaX : e.deltaY);
+      } else {
+        e.preventDefault();
+        el.taskTableWrap.scrollTop += e.deltaY;
+      }
     }, { passive: false });
     scrollSyncDone = true;
   }
@@ -174,6 +179,10 @@ Gantt.workspace = (function() {
       var tlText = state.isTimelineEditMode() ? 'Timeline editing on' : 'Timeline edit';
       el.btnTimelineEdit.innerHTML = tlIcon + '<span class="btn-text">' + tlText + '</span>';
     }
+    if (el.ganttTimelineEditHint) {
+      var showHint = !!editMode && !!lockedBySelf && state.isTimelineEditMode();
+      el.ganttTimelineEditHint.hidden = !showHint;
+    }
     if (el.btnImport) {
       var showImport = !!editMode && !!lockedBySelf;
       el.btnImport.hidden = !showImport;
@@ -187,17 +196,18 @@ Gantt.workspace = (function() {
   }
 
   function updateServerIndicatorUi() {
-    var el = state.getEl();
-    if (!el.workspaceServerIndicator) return;
-    el.workspaceServerIndicator.textContent =
-      serverConnectionState === 'online'
-        ? 'Online'
-        : serverConnectionState === 'offline'
-          ? 'Offline'
-          : 'Checking server...';
-    el.workspaceServerIndicator.classList.toggle('is-online', serverConnectionState === 'online');
-    el.workspaceServerIndicator.classList.toggle('is-offline', serverConnectionState === 'offline');
-    el.workspaceServerIndicator.classList.toggle('is-unknown', serverConnectionState === 'unknown');
+    var indicator = (state.getEl().workspaceServerIndicator) || document.getElementById('workspace-server-indicator');
+    if (!indicator) return;
+    var label = serverConnectionState === 'online'
+      ? 'Online'
+      : serverConnectionState === 'offline'
+        ? 'Offline'
+        : 'Checking server...';
+    indicator.textContent = label;
+    indicator.setAttribute('aria-label', 'Server status: ' + label);
+    indicator.classList.toggle('is-online', serverConnectionState === 'online');
+    indicator.classList.toggle('is-offline', serverConnectionState === 'offline');
+    indicator.classList.toggle('is-unknown', serverConnectionState === 'unknown');
   }
 
   function setServerConnectionState(nextState) {
@@ -309,25 +319,38 @@ Gantt.workspace = (function() {
 
   var LOCK_POLL_FAST_MS = 5000;
   var LOCK_POLL_SLOW_MS = 25000;
+  var LOCK_POLL_RETRY_MS = 15000;
+  var lockPollInFlight = false;
   function pollEditLock() {
-    return api.getEditLock()
+    if (lockPollInFlight) return;
+    lockPollInFlight = true;
+    api.getEditLock()
       .then(function(lock) {
         hasShownLockPollErrorToast = false;
         applyLockState(lock);
         var hasOurLock = lock && lock.locked && lock.employee_id === state.getEmployeeId();
-        if (lockPollTimer) {
-          window.clearInterval(lockPollTimer);
-          lockPollTimer = null;
-        }
-        var interval = hasOurLock ? LOCK_POLL_FAST_MS : LOCK_POLL_SLOW_MS;
-        lockPollTimer = window.setInterval(pollEditLock, interval);
+        scheduleNextLockPoll(hasOurLock ? LOCK_POLL_FAST_MS : LOCK_POLL_SLOW_MS);
       })
       .catch(function(e) {
         if (e && e.status && !e.isConnectionError && !hasShownLockPollErrorToast) {
           showToast(e.message || 'Unable to check edit lock', true);
           hasShownLockPollErrorToast = true;
         }
+        scheduleNextLockPoll(LOCK_POLL_RETRY_MS);
+      })
+      .finally(function() {
+        lockPollInFlight = false;
       });
+  }
+  function scheduleNextLockPoll(interval) {
+    if (lockPollTimer) {
+      window.clearTimeout(lockPollTimer);
+      lockPollTimer = null;
+    }
+    lockPollTimer = window.setTimeout(function() {
+      lockPollTimer = null;
+      pollEditLock();
+    }, interval);
   }
 
   function startLockPolling() {
@@ -648,13 +671,58 @@ Gantt.workspace = (function() {
     }
     state.setFocusedTaskUid(selectedTaskUid);
     render();
-    requestAnimationFrame(centerSelectedTaskRow);
+    requestAnimationFrame(function() {
+      centerSelectedTaskRow();
+      scrollTimelineToSelectedBar();
+    });
   }
 
   function openTaskDetail(uid) {
     setSelectedTask(uid);
     render();
     detail.renderDetail({ mergeAndRender: mergeAndRender, refreshAll: refreshAll });
+  }
+
+  function showBarContextMenu(taskUid, event, isTimelineEdit) {
+    var existing = document.getElementById('gantt-bar-context-menu');
+    if (existing) existing.remove();
+    var menu = document.createElement('div');
+    menu.id = 'gantt-bar-context-menu';
+    menu.className = 'gantt-bar-context-menu';
+    menu.style.cssText = 'position:fixed;left:' + event.clientX + 'px;top:' + event.clientY + 'px;z-index:10000;min-width:180px;padding:4px 0;background:rgba(20,26,38,0.98);border:1px solid rgba(255,255,255,0.1);border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,0.4);';
+    var items = [
+      { label: 'Open task detail', action: function() { openTaskDetail(taskUid); } },
+      { label: 'Edit dates', action: function() { openTaskDetail(taskUid); } }
+    ];
+    if (isTimelineEdit) {
+      items.push({ label: 'Create dependency from here', action: function() {
+        showToast('Drag from the blue dot on the right edge to another task\'s left dot to create a dependency');
+      } });
+    }
+    items.forEach(function(item) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'gantt-context-menu-item';
+      btn.textContent = item.label;
+      btn.style.cssText = 'display:block;width:100%;padding:8px 14px;border:none;background:transparent;color:rgba(255,255,255,0.9);text-align:left;font-size:0.85rem;cursor:pointer;';
+      btn.addEventListener('mouseenter', function() { btn.style.background = 'rgba(255,255,255,0.08)'; });
+      btn.addEventListener('mouseleave', function() { btn.style.background = 'transparent'; });
+      btn.addEventListener('click', function() {
+        item.action();
+        menu.remove();
+        document.removeEventListener('click', closeMenu);
+      });
+      menu.appendChild(btn);
+    });
+    document.body.appendChild(menu);
+    var rect = menu.getBoundingClientRect();
+    if (rect.right > window.innerWidth) menu.style.left = (event.clientX - rect.width) + 'px';
+    if (rect.bottom > window.innerHeight) menu.style.top = (event.clientY - rect.height) + 'px';
+    function closeMenu() {
+      if (menu.parentNode) menu.remove();
+      document.removeEventListener('click', closeMenu);
+    }
+    requestAnimationFrame(function() { document.addEventListener('click', closeMenu); });
   }
 
   function saveQuickEdit(task, field, values) {
@@ -716,21 +784,65 @@ Gantt.workspace = (function() {
     el.taskTableWrap.scrollTo({ top: targetTop, behavior: 'smooth' });
   }
 
+  function scrollTimelineToSelectedBar() {
+    var el = state.getEl();
+    var selectedUid = state.getSelectedTaskUid();
+    if (!selectedUid || !el.ganttBody || !el.ganttScrollWrap) return;
+    var row = el.ganttBody.querySelector('.gantt-row[data-uid="' + selectedUid + '"]');
+    if (!row) return;
+    var bar = row.querySelector('.bar');
+    if (!bar) return;
+    var barLeft = parseFloat(bar.style.left) || 0;
+    var barWidth = bar.offsetWidth || 48;
+    var wrap = el.ganttScrollWrap;
+    var scrollLeft = wrap.scrollLeft;
+    var clientWidth = wrap.clientWidth;
+    var padding = 24;
+    var barRight = barLeft + barWidth;
+    var viewRight = scrollLeft + clientWidth;
+    var targetScroll = scrollLeft;
+    if (barLeft < scrollLeft + padding) {
+      targetScroll = Math.max(0, barLeft - padding);
+    } else if (barRight > viewRight - padding) {
+      targetScroll = Math.min(wrap.scrollWidth - clientWidth, barRight - clientWidth + padding);
+    }
+    if (targetScroll !== scrollLeft) {
+      wrap.scrollTo({ left: targetScroll, behavior: 'smooth' });
+    }
+  }
+
+  var LOAD_TIMEOUT_MS = 15000;
+  function getApiLabel() {
+    return (api && api.getApiBaseUrl && api.getApiBaseUrl()) || window.location.origin || 'http://127.0.0.1:8000';
+  }
   function refreshAll() {
     setLoading(true);
-    api.getProject()
+    var loadTimeout = window.setTimeout(function() {
+      if (serverConnectionState === 'unknown') {
+        setServerConnectionState('offline');
+        var meta = (state.getEl().projectMeta) || document.getElementById('project-meta');
+        if (meta) meta.textContent = 'Load timed out. Is the server running at ' + getApiLabel() + '?';
+      }
+    }, LOAD_TIMEOUT_MS);
+    return api.getProject()
       .then(function(p) {
+        setServerConnectionState('online');
         state.setProject(p);
         var el = state.getEl();
         if (el.projectTitle) el.projectTitle.textContent = p.name || 'Gantt';
+        var meta = el.projectMeta || document.getElementById('project-meta');
+        if (meta) {
+          meta.textContent = '';
+          meta.classList.remove('load-failed');
+        }
         return api.getTasks();
       })
       .then(function(t) {
-        state.setTasks(t);
+        state.setTasks(Array.isArray(t) ? t : []);
         return api.getDependencies();
       })
       .then(function(d) {
-        state.setDependencies(d);
+        state.setDependencies(Array.isArray(d) ? d : []);
         state.setTaskRag({});
         render();
         setupScrollSync();
@@ -742,6 +854,7 @@ Gantt.workspace = (function() {
           }
         });
         setLoading(false);
+        updateServerIndicatorUi();
         return api.getBulkRag();
       })
       .then(function(bulkRag) {
@@ -764,16 +877,33 @@ Gantt.workspace = (function() {
         requestAnimationFrame(forceScrollSync);
       })
       .catch(function(e) {
-        var msg = (e && (e.message || (e.data && (e.data.message || (e.data.detail && (typeof e.data.detail === 'string' ? e.data.detail : e.data.detail.message)))))) || 'Load failed';
+        setServerConnectionState('offline');
+        var isTimeout = e && e.name === 'AbortError';
+        var msg = isTimeout
+          ? 'Request timed out. Is the server running?'
+          : (e && (e.message || (e.data && (e.data.message || (e.data.detail && (typeof e.data.detail === 'string' ? e.data.detail : e.data.detail.message)))))) || 'Load failed';
+        var projectMeta = (state.getEl().projectMeta) || document.getElementById('project-meta');
+        if (projectMeta) {
+          var hint = 'Is the server running at ' + getApiLabel() + '?';
+          projectMeta.textContent = 'Failed to load. ' + (e && e.status ? ('Error ' + e.status + ': ' + msg) : (isTimeout ? msg : hint)) + ' Click to retry.';
+          projectMeta.classList.add('load-failed');
+          projectMeta.setAttribute('role', 'button');
+          projectMeta.setAttribute('tabindex', '0');
+        }
         if (e && e.status && !e.isConnectionError) {
           showToast(msg, true);
         } else if (!e || !e.status) {
-          showToast('Cannot reach server. Is it running at ' + window.location.origin + '?', true);
+          showToast('Cannot reach server. Is it running at ' + getApiLabel() + '?', true);
         }
       })
       .finally(function() {
+        window.clearTimeout(loadTimeout);
         setLoading(false);
       });
+  }
+
+  function startLockPollingAfterLoad() {
+    refreshAll().then(startLockPolling).catch(startLockPolling);
   }
 
   function mergeAndRender() {
@@ -827,7 +957,10 @@ Gantt.workspace = (function() {
     }, function(uid) {
       setSelectedTask(uid);
       render();
-      requestAnimationFrame(centerSelectedTaskRow);
+      requestAnimationFrame(function() {
+        centerSelectedTaskRow();
+        scrollTimelineToSelectedBar();
+      });
     }, function(uid) {
       if (focusState.focusTask) return;
       state.toggleCollapsed(uid);
@@ -894,11 +1027,31 @@ Gantt.workspace = (function() {
         api.postDependency({ predecessor_task_uid: predecessorUid, successor_task_uid: successorUid, dependency_type: 'FS' })
           .then(function(dep) {
             state.addDependency(dep);
+            var successorTask = tasks.find(function(t) { return t.uid === successorUid; });
+            var predecessorTask = tasks.find(function(t) { return t.uid === predecessorUid; });
+            if (successorTask && predecessorTask && (!successorTask.start_date || !successorTask.end_date)) {
+              var predEnd = predecessorTask.end_date ? new Date(predecessorTask.end_date) : new Date();
+              var startStr = predEnd.toISOString().slice(0, 10);
+              var endDate = new Date(predEnd.getTime() + 7 * 24 * 60 * 60 * 1000);
+              var endStr = endDate.toISOString().slice(0, 10);
+              return api.patchTask(successorUid, { start_date: startStr, end_date: endStr })
+                .then(function(updatedTask) {
+                  state.mergeTask(updatedTask);
+                  showToast('Dependency added and task scheduled');
+                  mergeAndRender();
+                })
+                .catch(function(e) {
+                  showToast(e.message || 'Could not schedule task', true);
+                  mergeAndRender();
+                });
+            }
             showToast('Dependency added');
             mergeAndRender();
           })
           .catch(function(e) { showToast(e.message, true); });
       });
+    }, function(taskUid, event, isTimelineEdit) {
+      showBarContextMenu(taskUid, event, isTimelineEdit);
     });
     if (el.ganttZoomSelect) el.ganttZoomSelect.value = state.getTimelineZoom();
     requestAnimationFrame(forceScrollSync);
@@ -908,6 +1061,24 @@ Gantt.workspace = (function() {
     var el = state.getEl();
     if (api.setConnectionListener) {
       api.setConnectionListener(setServerConnectionState);
+    }
+    var projectMetaEl = el.projectMeta || document.getElementById('project-meta');
+    if (projectMetaEl) {
+      projectMetaEl.addEventListener('click', function() {
+        if (projectMetaEl.classList.contains('load-failed')) {
+          projectMetaEl.classList.remove('load-failed');
+          projectMetaEl.removeAttribute('role');
+          projectMetaEl.removeAttribute('tabindex');
+          projectMetaEl.textContent = 'Loading project plan...';
+          startLockPollingAfterLoad();
+        }
+      });
+      projectMetaEl.addEventListener('keydown', function(ev) {
+        if (projectMetaEl.classList.contains('load-failed') && (ev.key === 'Enter' || ev.key === ' ')) {
+          ev.preventDefault();
+          projectMetaEl.click();
+        }
+      });
     }
     var normalizedStoredEmployeeId = normalizeEmployeeId(state.getEmployeeId());
     if (state.getEmployeeId() && !normalizedStoredEmployeeId) {
@@ -1072,22 +1243,30 @@ Gantt.workspace = (function() {
       if (e.key === 'ArrowDown' && idx < visibleTree.length - 1) {
         e.preventDefault();
         var nextUid = visibleTree[idx + 1].uid;
+        var inGantt = el.ganttScrollWrap && el.ganttScrollWrap.contains(active);
         setSelectedTask(nextUid);
         render();
         requestAnimationFrame(function() {
           centerSelectedTaskRow();
+          scrollTimelineToSelectedBar();
+          var bar = el.ganttBody && el.ganttBody.querySelector('.gantt-row[data-uid="' + nextUid + '"] .bar');
           var row = el.taskTbody && el.taskTbody.querySelector('tr[data-uid="' + nextUid + '"]');
-          if (row) row.focus();
+          if (inGantt && bar) bar.focus();
+          else if (row) row.focus();
         });
       } else if (e.key === 'ArrowUp' && idx > 0) {
         e.preventDefault();
         var prevUid = visibleTree[idx - 1].uid;
+        var inGantt = el.ganttScrollWrap && el.ganttScrollWrap.contains(active);
         setSelectedTask(prevUid);
         render();
         requestAnimationFrame(function() {
           centerSelectedTaskRow();
+          scrollTimelineToSelectedBar();
+          var bar = el.ganttBody && el.ganttBody.querySelector('.gantt-row[data-uid="' + prevUid + '"] .bar');
           var row = el.taskTbody && el.taskTbody.querySelector('tr[data-uid="' + prevUid + '"]');
-          if (row) row.focus();
+          if (inGantt && bar) bar.focus();
+          else if (row) row.focus();
         });
       } else if (e.key === 'Enter' && selectedUid) {
         var row = el.taskTbody && el.taskTbody.querySelector('tr[data-uid="' + selectedUid + '"]');
@@ -1111,6 +1290,20 @@ Gantt.workspace = (function() {
       });
     }
 
+    var ZOOM_ORDER = ['years', 'quarters', 'months', 'weeks', 'days'];
+    function changeZoom(direction) {
+      var current = state.getTimelineZoom();
+      var idx = ZOOM_ORDER.indexOf(current);
+      if (direction === 'in' && idx < ZOOM_ORDER.length - 1) {
+        state.setTimelineZoom(ZOOM_ORDER[idx + 1]);
+        render();
+        requestAnimationFrame(centerTimelineOnToday);
+      } else if (direction === 'out' && idx > 0) {
+        state.setTimelineZoom(ZOOM_ORDER[idx - 1]);
+        render();
+        requestAnimationFrame(centerTimelineOnToday);
+      }
+    }
     if (el.ganttZoomSelect) {
       el.ganttZoomSelect.value = state.getTimelineZoom();
       el.ganttZoomSelect.addEventListener('change', function() {
@@ -1119,6 +1312,35 @@ Gantt.workspace = (function() {
         requestAnimationFrame(centerTimelineOnToday);
       });
     }
+    var btnZoomIn = document.getElementById('gantt-zoom-in');
+    var btnZoomOut = document.getElementById('gantt-zoom-out');
+    if (btnZoomIn) btnZoomIn.addEventListener('click', function() { changeZoom('in'); });
+    if (btnZoomOut) btnZoomOut.addEventListener('click', function() { changeZoom('out'); });
+    setupTimelineZoomShortcuts(panTimeline, changeZoom);
+    updateServerIndicatorUi();
+    updateModeUi();
+    startLockPollingAfterLoad();
+  }
+  function setupTimelineZoomShortcuts(panTimeline, changeZoom) {
+    var el = state.getEl();
+    if (!el.ganttScrollWrap) return;
+    function handleZoomKey(e) {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      var ganttPanel = document.getElementById('gantt-panel');
+      var inTimeline = ganttPanel && ganttPanel.contains(document.activeElement);
+      if (!inTimeline) return;
+      if (e.key === '=' || e.key === '+') {
+        e.preventDefault();
+        changeZoom('in');
+      } else if (e.key === '-') {
+        e.preventDefault();
+        changeZoom('out');
+      } else if (e.key === 'T' || e.key === 't') {
+        e.preventDefault();
+        centerTimelineOnToday();
+      }
+    }
+    document.addEventListener('keydown', handleZoomKey);
     if (el.ganttResetView) {
       el.ganttResetView.addEventListener('click', function() {
         centerTimelineOnToday();
@@ -1130,11 +1352,6 @@ Gantt.workspace = (function() {
     if (el.ganttPanRight) {
       el.ganttPanRight.addEventListener('click', function() { panTimeline('right'); });
     }
-
-    updateServerIndicatorUi();
-    updateModeUi();
-    startLockPolling();
-    refreshAll();
   }
 
   return {

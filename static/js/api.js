@@ -3,22 +3,76 @@ window.Gantt = window.Gantt || {};
 Gantt.api = (function() {
   var EMPLOYEE_ID_STORAGE_KEY = 'gantt-employee-id';
   var connectionListener = null;
+  var API_BASE_URL = resolveApiBaseUrl();
 
   function notifyConnection(status) {
     if (typeof connectionListener === 'function') connectionListener(status);
   }
 
-  function isCoreConnectionEndpoint(url) {
-    return /^\/api\/(?:project|tasks|dependencies|edit-lock)(?:$|[\/?])/.test(url || '');
+  function normalizeBaseUrl(value) {
+    return String(value || '').replace(/\/+$/, '');
   }
 
+  function resolveApiBaseUrl() {
+    var override = normalizeBaseUrl(window.GANTT_API_BASE_URL || window.localStorage.getItem('gantt-api-base-url'));
+    if (override) return override;
+    var origin = window.location.origin;
+    if (!origin || origin === 'null' || origin === 'file://' || origin.indexOf('file:') === 0) {
+      return 'http://127.0.0.1:8000';
+    }
+    try {
+      var parsed = new URL(origin);
+      var host = (parsed.hostname || '').toLowerCase();
+      var isLocalHost = host === 'localhost' || host === '127.0.0.1';
+      if (isLocalHost && parsed.port && parsed.port !== '8000') {
+        return parsed.protocol + '//' + parsed.hostname + ':8000';
+      }
+    } catch (e) {
+      return origin;
+    }
+    return origin;
+  }
+
+  function apiUrl(path) {
+    return API_BASE_URL + path;
+  }
+
+  function isCoreConnectionEndpoint(url) {
+    return /\/api\/(?:project|tasks|dependencies|edit-lock)(?:$|[\/?])/.test(url || '');
+  }
+
+  var FETCH_TIMEOUT_MS = 12000;
   function requestJson(url, options) {
-    return fetch(url, options)
+    var controller = new AbortController();
+    var to = setTimeout(function() { controller.abort(); }, FETCH_TIMEOUT_MS);
+    var opts = options ? Object.assign({}, options) : {};
+    opts.signal = controller.signal;
+    return fetch(url, opts)
       .then(function(r) {
+        var ct = (r.headers.get('content-type') || '').toLowerCase();
         return r.text().then(function(text) {
-          var data = text ? JSON.parse(text) : {};
+          if (ct.indexOf('text/html') !== -1 && isCoreConnectionEndpoint(url)) {
+            var err = new Error('Server returned HTML instead of JSON. The API may not be reachable.');
+            err.status = r.status;
+            err.isConnectionError = true;
+            throw err;
+          }
+          var data = {};
+          if (text) {
+            try {
+              data = JSON.parse(text);
+            } catch (e) {
+              if (isCoreConnectionEndpoint(url)) {
+                var parseErr = new Error('Invalid response from server (expected JSON).');
+                parseErr.status = r.status;
+                parseErr.isConnectionError = true;
+                throw parseErr;
+              }
+              throw e;
+            }
+          }
           if (!r.ok) {
-            var error = new Error((data && (data.message || data.detail && data.detail.message || data.detail)) || 'Request failed');
+            var error = new Error((data && (data.message || data.detail && (typeof data.detail === 'string' ? data.detail : data.detail.message))) || 'Request failed');
             error.status = r.status;
             error.data = data;
             error.isConnectionError =
@@ -31,9 +85,12 @@ Gantt.api = (function() {
         });
       })
       .catch(function(error) {
-        if (!error || !error.status || error.isConnectionError) notifyConnection('offline');
+        var isCore = isCoreConnectionEndpoint(url);
+        var shouldNotifyOffline = !error || !error.status || (isCore && (error.isConnectionError || (error.status && error.status >= 400)));
+        if (shouldNotifyOffline) notifyConnection('offline');
         throw error;
-      });
+      })
+      .finally(function() { clearTimeout(to); });
   }
 
   function getEmployeeId() {
@@ -58,35 +115,35 @@ Gantt.api = (function() {
   }
 
   function getProject() {
-    return requestJson('/api/project');
+    return requestJson(apiUrl('/api/project'));
   }
 
   function getTasks() {
-    return requestJson('/api/tasks');
+    return requestJson(apiUrl('/api/tasks'));
   }
 
   function getDependencies() {
-    return requestJson('/api/dependencies');
+    return requestJson(apiUrl('/api/dependencies'));
   }
 
   function getTaskRag(taskUid) {
-    return requestJson('/api/tasks/' + taskUid + '/rag');
+    return requestJson(apiUrl('/api/tasks/' + taskUid + '/rag'));
   }
 
   function getBulkRag() {
-    return requestJson('/api/rag');
+    return requestJson(apiUrl('/api/rag'));
   }
 
   function getTaskComments(taskUid) {
-    return requestJson('/api/tasks/' + taskUid + '/comments');
+    return requestJson(apiUrl('/api/tasks/' + taskUid + '/comments'));
   }
 
   function getTaskRisks(taskUid) {
-    return requestJson('/api/tasks/' + taskUid + '/risks');
+    return requestJson(apiUrl('/api/tasks/' + taskUid + '/risks'));
   }
 
   function patchTask(taskUid, payload) {
-    return requestJson('/api/tasks/' + taskUid, {
+    return requestJson(apiUrl('/api/tasks/' + taskUid), {
       method: 'PATCH',
       headers: buildWriteHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(payload)
@@ -94,7 +151,7 @@ Gantt.api = (function() {
   }
 
   function postRag(taskUid, payload) {
-    return requestJson('/api/tasks/' + taskUid + '/rag', {
+    return requestJson(apiUrl('/api/tasks/' + taskUid + '/rag'), {
       method: 'POST',
       headers: buildWriteHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(payload)
@@ -102,7 +159,7 @@ Gantt.api = (function() {
   }
 
   function postComment(taskUid, payload) {
-    return requestJson('/api/tasks/' + taskUid + '/comments', {
+    return requestJson(apiUrl('/api/tasks/' + taskUid + '/comments'), {
       method: 'POST',
       headers: buildWriteHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(payload)
@@ -110,7 +167,7 @@ Gantt.api = (function() {
   }
 
   function postRisk(taskUid, payload) {
-    return requestJson('/api/tasks/' + taskUid + '/risks', {
+    return requestJson(apiUrl('/api/tasks/' + taskUid + '/risks'), {
       method: 'POST',
       headers: buildWriteHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(payload)
@@ -118,7 +175,7 @@ Gantt.api = (function() {
   }
 
   function patchRisk(riskUid, payload) {
-    return requestJson('/api/risks/' + riskUid, {
+    return requestJson(apiUrl('/api/risks/' + riskUid), {
       method: 'PATCH',
       headers: buildWriteHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(payload)
@@ -126,7 +183,7 @@ Gantt.api = (function() {
   }
 
   function postTask(payload) {
-    return requestJson('/api/tasks', {
+    return requestJson(apiUrl('/api/tasks'), {
       method: 'POST',
       headers: buildWriteHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(payload)
@@ -134,7 +191,7 @@ Gantt.api = (function() {
   }
 
   function softDeleteTask(taskUid, payload) {
-    return requestJson('/api/tasks/' + taskUid + '/soft-delete', {
+    return requestJson(apiUrl('/api/tasks/' + taskUid + '/soft-delete'), {
       method: 'POST',
       headers: buildWriteHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(payload || {})
@@ -142,7 +199,7 @@ Gantt.api = (function() {
   }
 
   function postDependency(payload) {
-    return requestJson('/api/dependencies', {
+    return requestJson(apiUrl('/api/dependencies'), {
       method: 'POST',
       headers: buildWriteHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(payload)
@@ -150,14 +207,14 @@ Gantt.api = (function() {
   }
 
   function deleteDependency(depUid) {
-    return requestJson('/api/dependencies/' + depUid, {
+    return requestJson(apiUrl('/api/dependencies/' + depUid), {
       method: 'DELETE',
       headers: buildWriteHeaders()
     });
   }
 
   function importFile(formData) {
-    return requestJson('/api/import', {
+    return requestJson(apiUrl('/api/import'), {
       method: 'POST',
       headers: buildWriteHeaders(),
       body: formData
@@ -165,23 +222,23 @@ Gantt.api = (function() {
   }
 
   function exportUrl() {
-    return '/api/export';
+    return apiUrl('/api/export');
   }
 
   function exportReportUrl() {
-    return '/api/export-report';
+    return apiUrl('/api/export-report');
   }
 
   function getEditLock() {
-    return requestJson('/api/edit-lock');
+    return requestJson(apiUrl('/api/edit-lock'));
   }
 
   function getAuditEvents(filters) {
-    return requestJson('/api/audit-events' + buildQuery(filters || {}));
+    return requestJson(apiUrl('/api/audit-events' + buildQuery(filters || {})));
   }
 
   function acquireEditLock(payload) {
-    return requestJson('/api/edit-lock/acquire', {
+    return requestJson(apiUrl('/api/edit-lock/acquire'), {
       method: 'POST',
       headers: buildWriteHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(payload)
@@ -189,7 +246,7 @@ Gantt.api = (function() {
   }
 
   function releaseEditLock(payload) {
-    return requestJson('/api/edit-lock/release', {
+    return requestJson(apiUrl('/api/edit-lock/release'), {
       method: 'POST',
       headers: buildWriteHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(payload)
@@ -201,6 +258,8 @@ Gantt.api = (function() {
   }
 
   return {
+    apiUrl: apiUrl,
+    getApiBaseUrl: function() { return API_BASE_URL; },
     getProject: getProject,
     getTasks: getTasks,
     getDependencies: getDependencies,

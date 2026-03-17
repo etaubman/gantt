@@ -6,7 +6,8 @@ import uuid
 from datetime import datetime, date, timedelta
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, Request
+from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
@@ -15,6 +16,14 @@ from backend.database import get_conn, init_db
 from backend.seed_data import DEFAULT_PROJECT_UID, ensure_single_project_and_seed
 
 app = FastAPI(title="Gantt Project Manager")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+api = APIRouter()
 
 # --- Pydantic models ---
 
@@ -391,11 +400,13 @@ def _get_edit_lock(conn):
 
 @app.on_event("startup")
 def startup():
+    from backend.database import DB_PATH
+    print(f"[Gantt] Database: {DB_PATH}", flush=True)
     init_db()
     ensure_single_project_and_seed()
 
 
-@app.get("/api/projects", response_model=list[ProjectOut])
+@api.get("/projects", response_model=list[ProjectOut])
 def list_projects():
     """Return the single project (Markets Data Governance) only."""
     with get_conn() as conn:
@@ -407,12 +418,12 @@ def list_projects():
         return [ProjectOut(**dict(row))]
 
 
-@app.post("/api/projects", response_model=ProjectOut)
+@api.post("/projects", response_model=ProjectOut)
 def create_project(body: ProjectCreate):
     raise HTTPException(400, "Only one project is allowed. Use the existing Markets Data Governance project.")
 
 
-@app.get("/api/projects/{uid}", response_model=ProjectOut)
+@api.get("/projects/{uid}", response_model=ProjectOut)
 def get_project(uid: str):
     with get_conn() as conn:
         row = conn.execute("SELECT uid, name, created_at FROM projects WHERE uid = ?", (uid,)).fetchone()
@@ -421,7 +432,7 @@ def get_project(uid: str):
     return ProjectOut(**dict(row))
 
 
-@app.get("/api/project", response_model=ProjectOut)
+@api.get("/project", response_model=ProjectOut)
 def get_single_project():
     """Return the single (default) project. No project concept in URL."""
     with get_conn() as conn:
@@ -433,7 +444,7 @@ def get_single_project():
     return ProjectOut(**dict(row))
 
 
-@app.delete("/api/projects/{uid}", status_code=204)
+@api.delete("/projects/{uid}", status_code=204)
 def delete_project(uid: str, request: Request):
     if uid == DEFAULT_PROJECT_UID:
         raise HTTPException(400, "The Markets Data Governance project cannot be deleted.")
@@ -461,7 +472,7 @@ def delete_project(uid: str, request: Request):
 
 # --- Tasks ---
 
-@app.get("/api/projects/{project_uid}/tasks")
+@api.get("/projects/{project_uid}/tasks")
 def list_tasks(project_uid: str):
     with get_conn() as conn:
         row = conn.execute("SELECT uid FROM projects WHERE uid = ?", (project_uid,)).fetchone()
@@ -478,13 +489,13 @@ def list_tasks(project_uid: str):
     return tasks
 
 
-@app.get("/api/tasks")
+@api.get("/tasks")
 def list_tasks_single():
     """Return tasks for the single (default) project."""
     return list_tasks(DEFAULT_PROJECT_UID)
 
 
-@app.post("/api/projects/{project_uid}/tasks")
+@api.post("/projects/{project_uid}/tasks")
 def create_task(project_uid: str, body: TaskCreate, request: Request):
     actor_employee_id = _get_actor_employee_id(request)
     _validate_task_status(body.status)
@@ -555,13 +566,13 @@ def create_task(project_uid: str, body: TaskCreate, request: Request):
     return task
 
 
-@app.post("/api/tasks")
+@api.post("/tasks")
 def create_task_single(body: TaskCreate, request: Request):
     """Create task in the single (default) project."""
     return create_task(DEFAULT_PROJECT_UID, body, request)
 
 
-@app.get("/api/tasks/{uid}")
+@api.get("/tasks/{uid}")
 def get_task(uid: str):
     with get_conn() as conn:
         row = conn.execute(
@@ -576,7 +587,7 @@ def get_task(uid: str):
     return _normalize_task_dict(row)
 
 
-@app.patch("/api/tasks/{uid}")
+@api.patch("/tasks/{uid}")
 def update_task(uid: str, body: TaskUpdate, request: Request):
     _validate_task_status(body.status)
     if body.scheduling_mode is not None:
@@ -627,13 +638,13 @@ def update_task(uid: str, body: TaskUpdate, request: Request):
 
 # --- Edit lock ---
 
-@app.get("/api/edit-lock")
+@api.get("/edit-lock")
 def get_edit_lock():
     with get_conn() as conn:
         return _get_edit_lock(conn)
 
 
-@app.post("/api/edit-lock/acquire")
+@api.post("/edit-lock/acquire")
 def acquire_edit_lock(body: EditLockRequest, request: Request):
     employee_id = _normalize_employee_id(body.employee_id)
     actor_employee_id = _get_actor_employee_id(request) or employee_id
@@ -669,7 +680,7 @@ def acquire_edit_lock(body: EditLockRequest, request: Request):
         return updated_lock
 
 
-@app.post("/api/edit-lock/release")
+@api.post("/edit-lock/release")
 def release_edit_lock(body: EditLockRequest, request: Request):
     employee_id = _normalize_employee_id(body.employee_id)
     actor_employee_id = _get_actor_employee_id(request) or employee_id
@@ -698,7 +709,7 @@ def release_edit_lock(body: EditLockRequest, request: Request):
         return updated_lock
 
 
-@app.post("/api/tasks/{uid}/soft-delete")
+@api.post("/tasks/{uid}/soft-delete")
 def soft_delete_task(uid: str, body: SoftDeleteTaskRequest, request: Request):
     actor_employee_id = _get_actor_employee_id(request)
     strategy = _validate_soft_delete_strategy(body.strategy)
@@ -767,7 +778,7 @@ def soft_delete_task(uid: str, body: SoftDeleteTaskRequest, request: Request):
     return _normalize_task_dict(updated_task) if updated_task else task
 
 
-@app.delete("/api/tasks/{uid}", status_code=204)
+@api.delete("/tasks/{uid}", status_code=204)
 def delete_task(uid: str, request: Request):
     """Delete task and cascade to subtasks, dependencies, rag, comments, risks."""
     actor_employee_id = _get_actor_employee_id(request)
@@ -812,7 +823,7 @@ def _delete_task_recursive(conn, uid: str):
 # --- RAG ---
 
 
-@app.get("/api/rag")
+@api.get("/rag")
 def list_rag_bulk():
     """Return RAG history for all tasks in the default project. Response: { task_uid: [rag_entries] }."""
     with get_conn() as conn:
@@ -834,7 +845,7 @@ def list_rag_bulk():
     return result
 
 
-@app.get("/api/projects/{project_uid}/rag")
+@api.get("/projects/{project_uid}/rag")
 def list_rag_bulk_by_project(project_uid: str):
     """Return RAG history for all tasks in a project. Response: { task_uid: [rag_entries] }."""
     with get_conn() as conn:
@@ -858,7 +869,7 @@ def list_rag_bulk_by_project(project_uid: str):
     return result
 
 
-@app.get("/api/tasks/{task_uid}/rag")
+@api.get("/tasks/{task_uid}/rag")
 def list_rag(task_uid: str):
     with get_conn() as conn:
         if conn.execute("SELECT uid FROM tasks WHERE uid = ?", (task_uid,)).fetchone() is None:
@@ -870,7 +881,7 @@ def list_rag(task_uid: str):
         return [dict(r) for r in cur.fetchall()]
 
 
-@app.post("/api/tasks/{task_uid}/rag")
+@api.post("/tasks/{task_uid}/rag")
 def create_rag(task_uid: str, body: RAGCreate, request: Request):
     if body.status not in ("green", "amber", "red"):
         raise HTTPException(400, "status must be green, amber, or red")
@@ -911,7 +922,7 @@ def create_rag(task_uid: str, body: RAGCreate, request: Request):
 
 # --- Comments ---
 
-@app.get("/api/tasks/{task_uid}/comments")
+@api.get("/tasks/{task_uid}/comments")
 def list_comments(task_uid: str):
     with get_conn() as conn:
         if conn.execute("SELECT uid FROM tasks WHERE uid = ?", (task_uid,)).fetchone() is None:
@@ -923,7 +934,7 @@ def list_comments(task_uid: str):
         return [dict(r) for r in cur.fetchall()]
 
 
-@app.post("/api/tasks/{task_uid}/comments")
+@api.post("/tasks/{task_uid}/comments")
 def create_comment(task_uid: str, body: CommentCreate, request: Request):
     actor_employee_id = _get_actor_employee_id(request)
     with get_conn() as conn:
@@ -953,7 +964,7 @@ def create_comment(task_uid: str, body: CommentCreate, request: Request):
 
 # --- Risks ---
 
-@app.get("/api/tasks/{task_uid}/risks")
+@api.get("/tasks/{task_uid}/risks")
 def list_risks(task_uid: str):
     with get_conn() as conn:
         if conn.execute("SELECT uid FROM tasks WHERE uid = ?", (task_uid,)).fetchone() is None:
@@ -966,7 +977,7 @@ def list_risks(task_uid: str):
         return [dict(r) for r in cur.fetchall()]
 
 
-@app.post("/api/tasks/{task_uid}/risks")
+@api.post("/tasks/{task_uid}/risks")
 def create_risk(task_uid: str, body: RiskCreate, request: Request):
     if body.severity not in ("low", "medium", "high", "critical"):
         raise HTTPException(400, "Invalid severity")
@@ -1002,7 +1013,7 @@ def create_risk(task_uid: str, body: RiskCreate, request: Request):
     return risk
 
 
-@app.patch("/api/risks/{uid}")
+@api.patch("/risks/{uid}")
 def update_risk(uid: str, body: RiskUpdate, request: Request):
     updates = []
     values = []
@@ -1044,7 +1055,7 @@ def update_risk(uid: str, body: RiskUpdate, request: Request):
 
 # --- Dependencies ---
 
-@app.get("/api/projects/{project_uid}/dependencies")
+@api.get("/projects/{project_uid}/dependencies")
 def list_dependencies(project_uid: str):
     with get_conn() as conn:
         if conn.execute("SELECT uid FROM projects WHERE uid = ?", (project_uid,)).fetchone() is None:
@@ -1056,7 +1067,7 @@ def list_dependencies(project_uid: str):
         return [dict(r) for r in cur.fetchall()]
 
 
-@app.post("/api/projects/{project_uid}/dependencies")
+@api.post("/projects/{project_uid}/dependencies")
 def create_dependency(project_uid: str, body: DependencyCreate, request: Request):
     if body.dependency_type not in ("FS", "SS", "FF", "SF"):
         raise HTTPException(400, "dependency_type must be FS, SS, FF, or SF")
@@ -1094,19 +1105,19 @@ def create_dependency(project_uid: str, body: DependencyCreate, request: Request
     return dependency
 
 
-@app.get("/api/dependencies")
+@api.get("/dependencies")
 def list_dependencies_single():
     """Return dependencies for the single (default) project."""
     return list_dependencies(DEFAULT_PROJECT_UID)
 
 
-@app.post("/api/dependencies")
+@api.post("/dependencies")
 def create_dependency_single(body: DependencyCreate, request: Request):
     """Create dependency in the single (default) project."""
     return create_dependency(DEFAULT_PROJECT_UID, body, request)
 
 
-@app.delete("/api/dependencies/{uid}", status_code=204)
+@api.delete("/dependencies/{uid}", status_code=204)
 def delete_dependency(uid: str, request: Request):
     actor_employee_id = _get_actor_employee_id(request)
     with get_conn() as conn:
@@ -1137,7 +1148,7 @@ def delete_dependency(uid: str, request: Request):
 
 # --- Excel export / import ---
 
-@app.get("/api/projects/{project_uid}/export")
+@api.get("/projects/{project_uid}/export")
 def export_project(project_uid: str):
     from backend.excel_io import export_project_to_xlsx
     path = export_project_to_xlsx(project_uid)
@@ -1154,19 +1165,19 @@ def export_project_report(project_uid: str):
     return FileResponse(path, filename=os.path.basename(path), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 
-@app.get("/api/export")
+@api.get("/export")
 def export_single():
     """Export the single (default) project."""
     return export_project(DEFAULT_PROJECT_UID)
 
 
-@app.get("/api/export-report")
+@api.get("/export-report")
 def export_report_single():
     """Export the single project as a human-readable report workbook."""
     return export_project_report(DEFAULT_PROJECT_UID)
 
 
-@app.post("/api/import")
+@api.post("/import")
 def import_excel(request: Request, file: UploadFile = File(...)):
     if not file.filename or not file.filename.lower().endswith((".xlsx", ".xls")):
         raise HTTPException(400, "Please upload an Excel (.xlsx) file")
@@ -1191,9 +1202,22 @@ def import_excel(request: Request, file: UploadFile = File(...)):
     return imported
 
 
+# --- Debug (for troubleshooting persistence) ---
+
+@api.get("/debug")
+def debug_info():
+    """Return database path and existence for troubleshooting import/refresh persistence."""
+    from backend.database import DB_PATH
+    return {
+        "db_path": DB_PATH,
+        "db_exists": os.path.isfile(DB_PATH),
+        "db_size_bytes": os.path.getsize(DB_PATH) if os.path.isfile(DB_PATH) else None,
+    }
+
+
 # --- Audit log ---
 
-@app.get("/api/audit-events")
+@api.get("/audit-events")
 def list_audit_events(
     employee_id: Optional[str] = None,
     action_type: Optional[str] = None,
@@ -1221,7 +1245,27 @@ def list_audit_events(
     return [_serialize_audit_event(row) for row in rows]
 
 
-# --- Static files (must be last) ---
+# --- Serve API and static: explicit routes first, then API at /api, static at /static ---
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "..", "static")
-app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
+
+
+@app.get("/")
+def serve_index():
+    return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+
+
+@app.get("/index.html")
+def serve_index_html():
+    return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+
+
+@app.get("/project.html")
+def serve_project():
+    return FileResponse(os.path.join(STATIC_DIR, "project.html"))
+
+
+api_app = FastAPI()
+api_app.include_router(api)
+app.mount("/api", api_app)
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")

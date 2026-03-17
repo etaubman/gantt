@@ -394,6 +394,30 @@ Gantt.gantt = (function() {
     return ((dateAtStart(d) - minDateStart) / dayMs) * pxPerDay;
   }
 
+  function snapDateToGrid(d, zoom, pxPerDay) {
+    var x = dateAtStart(d);
+    var snapDays = 1;
+    if (pxPerDay != null && pxPerDay > 0) {
+      if (pxPerDay >= 2.5) snapDays = 1;
+      else if (pxPerDay >= 1.2) snapDays = 7;
+      else snapDays = 30;
+    } else {
+      if (zoom === 'days' || zoom === 'weeks') snapDays = 1;
+      else if (zoom === 'months' || zoom === 'quarters') snapDays = 7;
+      else snapDays = 30;
+    }
+    if (snapDays === 1) return x;
+    if (snapDays === 7) {
+      var dayOfWeek = x.getDay();
+      var mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      return new Date(x.getTime() + mondayOffset * dayMs);
+    }
+    if (snapDays === 30) {
+      return new Date(x.getFullYear(), x.getMonth(), 1);
+    }
+    return x;
+  }
+
   function formatDateForTooltip(d) {
     return d.toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
   }
@@ -407,7 +431,25 @@ Gantt.gantt = (function() {
     positionTooltip(tooltip, event);
   }
 
-  function render(tree, treeToRender, viewport, taskRag, selectedTaskUid, onTaskSelect, onTaskOpenDetail, isTimelineEdit, onTaskDateChange, onDependencyCreate) {
+  function updateDragFeedback(startDate, endDate, isMilestone) {
+    var el = Gantt.state.getEl();
+    var fb = el && el.ganttDragFeedback;
+    if (!fb) return;
+    var label = isMilestone ? prettyDate(startDate) : prettyDate(startDate) + ' – ' + prettyDate(endDate);
+    fb.textContent = 'Dragging: ' + label;
+    fb.hidden = false;
+  }
+
+  function clearDragFeedback() {
+    var el = Gantt.state.getEl();
+    var fb = el && el.ganttDragFeedback;
+    if (fb) {
+      fb.textContent = '';
+      fb.hidden = true;
+    }
+  }
+
+  function render(tree, treeToRender, viewport, taskRag, selectedTaskUid, onTaskSelect, onTaskOpenDetail, isTimelineEdit, onTaskDateChange, onDependencyCreate, onBarContextMenu) {
     if (typeof viewport !== 'object' || viewport === null) {
       viewport = null;
       treeToRender = tree;
@@ -494,12 +536,19 @@ Gantt.gantt = (function() {
     el.ganttBody.style.setProperty('--gantt-row-height', ROW_HEIGHT + 'px');
     el.ganttBody.innerHTML = '';
     el.ganttBody.style.minWidth = totalWidth + 'px';
-    var totalBodyHeight = tree.length * ROW_HEIGHT;
+    var totalBodyHeight = Math.max(tree.length * ROW_HEIGHT, 120);
     el.ganttBody.style.minHeight = totalBodyHeight + 'px';
     var bodyWeekend = document.createElement('div');
     bodyWeekend.className = 'gantt-weekend-overlay';
     bodyWeekend.style.background = weekendGradient;
     el.ganttBody.appendChild(bodyWeekend);
+    if (tree.length === 0) {
+      var emptyEl = document.createElement('div');
+      emptyEl.className = 'gantt-empty-state';
+      emptyEl.setAttribute('aria-live', 'polite');
+      emptyEl.innerHTML = '<p class="gantt-empty-message">No tasks to display on the timeline.</p>';
+      el.ganttBody.appendChild(emptyEl);
+    }
     var geometryByUid = {};
     var dependencyOverlay = buildDependencyOverlay(totalWidth, Math.max(tree.length * ROW_HEIGHT, ROW_HEIGHT));
     var rowFragment = document.createDocumentFragment();
@@ -623,6 +672,14 @@ Gantt.gantt = (function() {
         if (!isTimelineEdit) hideTooltip();
       });
       bar.addEventListener('focus', function() {
+        if (onTaskSelect && Gantt.state.getSelectedTaskUid() !== t.uid) {
+          onTaskSelect(t.uid);
+          requestAnimationFrame(function() {
+            var el = Gantt.state.getEl();
+            var b = el && el.ganttBody && el.ganttBody.querySelector('.gantt-row[data-uid="' + t.uid + '"] .bar');
+            if (b) b.focus();
+          });
+        }
         showDependencyHover(t.uid, dependencies, geometryByUid, dependencyOverlay);
         if (!isTimelineEdit) {
           var rect = bar.getBoundingClientRect();
@@ -635,6 +692,11 @@ Gantt.gantt = (function() {
       bar.addEventListener('blur', function() {
         if (!isTimelineEdit) hideTooltip();
         clearDependencyHover(dependencyOverlay, geometryByUid);
+      });
+      bar.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (onBarContextMenu) onBarContextMenu(t.uid, e, isTimelineEdit);
       });
 
       if (isTimelineEdit && onTaskDateChange && !isCancelled) {
@@ -652,14 +714,14 @@ Gantt.gantt = (function() {
 
         var leftDot = null;
         var rightDot = null;
-        if (!isMilestone && taskStart && taskEnd) {
+        if (!isMilestone && (taskStart && taskEnd)) {
           leftDot = document.createElement('div');
           leftDot.className = 'gantt-dep-dot gantt-dep-dot-left gantt-dep-dot-target';
           leftDot.setAttribute('data-uid', t.uid);
           leftDot.setAttribute('data-side', 'left');
           leftDot.title = 'Drop here to create dependency (this task as successor)';
           leftDot.style.left = (barLeft - DOT_OFFSET) + 'px';
-          leftDot.style.top = (ROW_HEIGHT / 2 - 5) + 'px';
+          leftDot.style.top = (ROW_HEIGHT / 2 - 6) + 'px';
           barWrap.appendChild(leftDot);
 
           rightDot = document.createElement('div');
@@ -668,13 +730,22 @@ Gantt.gantt = (function() {
           rightDot.setAttribute('data-side', 'right');
           rightDot.title = 'Drag to create dependency (this task as predecessor)';
           rightDot.style.left = (barLeft + barWidth + DOT_OFFSET) + 'px';
-          rightDot.style.top = (ROW_HEIGHT / 2 - 5) + 'px';
+          rightDot.style.top = (ROW_HEIGHT / 2 - 6) + 'px';
           barWrap.appendChild(rightDot);
 
           setupDependencyDotHandlers(rightDot, row, t.uid, geometryByUid, dependencyOverlay, el.ganttBody, dependencies, onDependencyCreate, ROW_HEIGHT, DOT_OFFSET, geom.centerY, createSvgEl);
+        } else if (!isMilestone && (!taskStart || !taskEnd)) {
+          leftDot = document.createElement('div');
+          leftDot.className = 'gantt-dep-dot gantt-dep-dot-left gantt-dep-dot-target gantt-dep-dot-unscheduled';
+          leftDot.setAttribute('data-uid', t.uid);
+          leftDot.setAttribute('data-side', 'left');
+          leftDot.title = 'Drop here to create dependency and schedule this task';
+          leftDot.style.left = (barLeft - DOT_OFFSET) + 'px';
+          leftDot.style.top = (ROW_HEIGHT / 2 - 6) + 'px';
+          barWrap.appendChild(leftDot);
         }
 
-        var edgeResizeZone = 8;
+        var edgeResizeZone = 14;
         var isResizing = false;
         var isMoving = false;
         var resizeSide = null;
@@ -721,34 +792,40 @@ Gantt.gantt = (function() {
 
         function onBarDragMove(e) {
           var deltaPx = e.clientX - startX;
-          var deltaDays = deltaPx / pxPerDay;
           if (isMoving) {
             var newLeft = Math.max(0, startLeft + deltaPx);
-            var newLeftDate = new Date(startLeftDateVal.getTime() + deltaDays * dayMs);
-            var newRightDate = new Date(startRightDateVal.getTime() + deltaDays * dayMs);
+            var newWidth = startWidth;
+            if (newLeft + newWidth > totalWidth) newWidth = Math.max(pxPerDay, totalWidth - newLeft);
             bar.style.left = newLeft + 'px';
+            bar.style.width = newWidth + 'px';
             barLeft = newLeft;
+            barWidth = newWidth;
+            var leftDate = pxToDate(newLeft, minDateStart, pxPerDay);
+            var rightDate = new Date(pxToDate(newLeft + newWidth, minDateStart, pxPerDay).getTime() - dayMs);
             updateDotPositions();
-            showDateTooltip(e, newLeftDate, newRightDate, false);
+            showDateTooltip(e, leftDate, rightDate, false);
+            updateDragFeedback(leftDate, rightDate, false);
           } else if (isResizing && resizeSide === 'left') {
             var newLeft = Math.max(0, Math.min(startLeft + startWidth - pxPerDay, startLeft + deltaPx));
             var newWidth = startLeft + startWidth - newLeft;
             if (newWidth < pxPerDay) return;
-            var newLeftDate = pxToDate(newLeft, minDateStart, pxPerDay);
             bar.style.left = newLeft + 'px';
             bar.style.width = newWidth + 'px';
             barLeft = newLeft;
             barWidth = newWidth;
+            var leftDate = pxToDate(newLeft, minDateStart, pxPerDay);
             updateDotPositions();
-            showDateTooltip(e, newLeftDate, startRightDateVal, false);
+            showDateTooltip(e, leftDate, startRightDateVal, false);
+            updateDragFeedback(leftDate, startRightDateVal, false);
           } else if (isResizing && resizeSide === 'right') {
             var newWidth = Math.max(pxPerDay, startWidth + deltaPx);
-            var rightEdgeDate = pxToDate(startLeft + newWidth, minDateStart, pxPerDay);
-            var newRightDate = new Date(rightEdgeDate.getTime() - dayMs);
+            if (startLeft + newWidth > totalWidth) newWidth = totalWidth - startLeft;
             bar.style.width = newWidth + 'px';
             barWidth = newWidth;
+            var rightDate = new Date(pxToDate(startLeft + newWidth, minDateStart, pxPerDay).getTime() - dayMs);
             updateDotPositions();
-            showDateTooltip(e, startLeftDateVal, newRightDate, false);
+            showDateTooltip(e, startLeftDateVal, rightDate, false);
+            updateDragFeedback(startLeftDateVal, rightDate, false);
           }
         }
 
@@ -756,20 +833,33 @@ Gantt.gantt = (function() {
           document.removeEventListener('mousemove', onBarDragMove);
           document.removeEventListener('mouseup', onBarDragEnd);
           hideTooltip();
+          clearDragFeedback();
           if (!isMoving && !isResizing) return;
           var newStart, newEnd;
           if (isMoving) {
-            newStart = new Date(startLeftDateVal.getTime() + ((barLeft - startLeft) / pxPerDay) * dayMs);
-            newEnd = new Date(startRightDateVal.getTime() + ((barLeft - startLeft) / pxPerDay) * dayMs);
+            newStart = snapDateToGrid(pxToDate(barLeft, minDateStart, pxPerDay), zoom, pxPerDay);
+            var endPx = barLeft + barWidth;
+            newEnd = snapDateToGrid(new Date(pxToDate(endPx, minDateStart, pxPerDay).getTime() - dayMs), zoom, pxPerDay);
+            if (newEnd.getTime() <= newStart.getTime()) newEnd = new Date(newStart.getTime() + dayMs);
           } else {
-            newStart = resizeSide === 'left' ? pxToDate(barLeft, minDateStart, pxPerDay) : startLeftDateVal;
+            newStart = resizeSide === 'left' ? snapDateToGrid(pxToDate(barLeft, minDateStart, pxPerDay), zoom, pxPerDay) : startLeftDateVal;
             if (resizeSide === 'right') {
               var rightEdge = pxToDate(barLeft + barWidth, minDateStart, pxPerDay);
-              newEnd = new Date(rightEdge.getTime() - dayMs);
+              newEnd = snapDateToGrid(new Date(rightEdge.getTime() - dayMs), zoom, pxPerDay);
             } else {
               newEnd = startRightDateVal;
             }
           }
+          var snappedLeft = dateToPx(newStart, minDateStart, pxPerDay);
+          var snappedEnd = new Date(newEnd.getTime() + dayMs);
+          var snappedWidth = dateToPx(snappedEnd, minDateStart, pxPerDay) - snappedLeft;
+          snappedWidth = Math.max(pxPerDay, snappedWidth);
+          snappedLeft = Math.max(0, snappedLeft);
+          bar.style.left = snappedLeft + 'px';
+          bar.style.width = snappedWidth + 'px';
+          barLeft = snappedLeft;
+          barWidth = snappedWidth;
+          updateDotPositions();
           var startStr = toLocalDateStr(newStart);
           var endStr = toLocalDateStr(newEnd);
           onTaskDateChange(t.uid, startStr, endStr);
@@ -791,24 +881,32 @@ Gantt.gantt = (function() {
           });
           function onMilestoneMove(e) {
             var deltaPx = e.clientX - startX;
-            var newLeft = Math.max(0, startLeft + deltaPx);
-            var newDate = pxToDate(newLeft + w / 2, minDateStart, pxPerDay);
+            var newLeft = Math.max(0, Math.min(totalWidth - w, startLeft + deltaPx));
             bar.style.left = newLeft + 'px';
             var milestoneLabel = barWrap.querySelector('.gantt-milestone-label');
             if (milestoneLabel) milestoneLabel.style.left = (newLeft + w + 10) + 'px';
+            var newDate = pxToDate(newLeft + w / 2, minDateStart, pxPerDay);
             showDateTooltip(e, newDate, newDate, true);
+            updateDragFeedback(newDate, newDate, true);
           }
           function onMilestoneEnd() {
             document.removeEventListener('mousemove', onMilestoneMove);
             document.removeEventListener('mouseup', onMilestoneEnd);
             hideTooltip();
+            clearDragFeedback();
             var newLeft = parseFloat(bar.style.left) || left;
-            var newDate = pxToDate(newLeft + w / 2, minDateStart, pxPerDay);
+            var newDate = snapDateToGrid(pxToDate(newLeft + w / 2, minDateStart, pxPerDay), zoom, pxPerDay);
             var startStr = toLocalDateStr(newDate);
             onTaskDateChange(t.uid, startStr, startStr);
           }
         } else {
           bar.addEventListener('mousedown', startBarDrag);
+          bar.addEventListener('mousemove', function(e) {
+            var rect = bar.getBoundingClientRect();
+            var localX = e.clientX - rect.left;
+            bar.style.cursor = (localX < edgeResizeZone || localX > rect.width - edgeResizeZone) ? 'ew-resize' : 'grab';
+          });
+          bar.addEventListener('mouseleave', function() { bar.style.cursor = 'grab'; });
         }
         bar.style.cursor = 'grab';
       }

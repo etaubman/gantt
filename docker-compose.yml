@@ -3,6 +3,8 @@ services:
     build: .
     ports:
       - "8000:8000"
+    environment:
+      GANTT_DB_PATH: /data/gantt.db
     volumes:
       - gantt_data:/data
       # Mount static files so frontend changes apply without rebuilding
