@@ -36,6 +36,16 @@ Gantt.utils = (function() {
     }).join(' ');
   }
 
+  function isTaskPastDue(task) {
+    if (!task || !task.end_date) return false;
+    if (task.status === 'complete' || task.status === 'cancelled') return false;
+    var end = new Date(String(task.end_date).slice(0, 10));
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
+    return end.getTime() < today.getTime();
+  }
+
   function ensureToastContainer() {
     if (toastContainer && toastContainer.isConnected) return toastContainer;
     toastContainer = document.createElement('div');
@@ -64,6 +74,7 @@ Gantt.utils = (function() {
     prettyDate: prettyDate,
     shortDate: shortDate,
     titleCaseStatus: titleCaseStatus,
+    isTaskPastDue: isTaskPastDue,
     showToast: showToast
   };
 })();

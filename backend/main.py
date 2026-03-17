@@ -37,7 +37,8 @@ class TaskCreate(BaseModel):
     is_milestone: bool = False
     status: str = "not_started"
     progress: int = Field(0, ge=0, le=100)
-    sort_order: int = 0
+    sort_order: Optional[int] = None
+    scheduling_mode: str = "fixed"
 
 class TaskUpdate(BaseModel):
     name: Optional[str] = None
@@ -50,6 +51,7 @@ class TaskUpdate(BaseModel):
     status: Optional[str] = None
     progress: Optional[int] = Field(None, ge=0, le=100)
     sort_order: Optional[int] = None
+    scheduling_mode: Optional[str] = None
 
 class RAGCreate(BaseModel):
     status: str  # green, amber, red
@@ -94,6 +96,7 @@ class SoftDeleteTaskRequest(BaseModel):
 EMPLOYEE_ID_RE = re.compile(r"^[a-zA-Z]{2}[0-9]{5}$")
 VALID_TASK_STATUSES = {"not_started", "in_progress", "complete", "blocked", "cancelled"}
 VALID_SOFT_DELETE_STRATEGIES = {"shift_up", "delete_subtasks"}
+VALID_SCHEDULING_MODES = {"fixed", "auto"}
 
 
 def _now() -> str:
@@ -108,6 +111,7 @@ def _normalize_task_dict(row) -> dict:
     task = dict(row)
     task["is_milestone"] = bool(task.get("is_milestone"))
     task["is_deleted"] = bool(task.get("is_deleted"))
+    task["scheduling_mode"] = task.get("scheduling_mode") or "fixed"
     return task
 
 
@@ -117,6 +121,14 @@ def _validate_task_status(status: Optional[str]) -> Optional[str]:
     if status not in VALID_TASK_STATUSES:
         raise HTTPException(400, "Invalid task status")
     return status
+
+
+def _validate_scheduling_mode(mode: Optional[str]) -> Optional[str]:
+    if mode is None:
+        return None
+    if mode not in VALID_SCHEDULING_MODES:
+        raise HTTPException(400, "scheduling_mode must be 'fixed' or 'auto'")
+    return mode
 
 
 def _validate_soft_delete_strategy(strategy: str) -> str:
@@ -150,6 +162,79 @@ def _get_actor_employee_id(request: Optional[Request]) -> str:
     if EMPLOYEE_ID_RE.fullmatch(value):
         return value[:2].upper() + value[2:]
     return value
+
+
+def _propagate_auto_schedule(conn, project_uid: str, changed_task_uid: str, actor_employee_id: str) -> None:
+    """When a task's dates change, propagate to auto-scheduled successors based on dependencies."""
+    deps = conn.execute(
+        """SELECT d.uid, d.predecessor_task_uid, d.successor_task_uid, d.dependency_type
+           FROM dependencies d
+           JOIN tasks t ON t.uid = d.successor_task_uid
+           WHERE d.predecessor_task_uid = ? AND d.project_uid = ?
+             AND COALESCE(t.scheduling_mode, 'fixed') = 'auto'
+             AND COALESCE(t.is_deleted, 0) = 0""",
+        (changed_task_uid, project_uid),
+    ).fetchall()
+    if not deps:
+        return
+    tasks_by_uid = {}
+    for r in conn.execute(
+        """SELECT uid, start_date, end_date FROM tasks
+           WHERE project_uid = ? AND COALESCE(is_deleted, 0) = 0""",
+        (project_uid,),
+    ).fetchall():
+        tasks_by_uid[r["uid"]] = dict(r)
+    now = _now()
+    for dep in deps:
+        succ_uid = dep["successor_task_uid"]
+        pred_uid = dep["predecessor_task_uid"]
+        dep_type = (dep["dependency_type"] or "FS").upper()
+        pred = tasks_by_uid.get(pred_uid)
+        succ = tasks_by_uid.get(succ_uid)
+        if not pred or not succ:
+            continue
+        pred_start = date.fromisoformat(pred["start_date"][:10]) if pred.get("start_date") else None
+        pred_end = date.fromisoformat(pred["end_date"][:10]) if pred.get("end_date") else None
+        succ_start = date.fromisoformat(succ["start_date"][:10]) if succ.get("start_date") else None
+        succ_end = date.fromisoformat(succ["end_date"][:10]) if succ.get("end_date") else None
+        if not pred_start or not pred_end:
+            continue
+        duration_days = (succ_end - succ_start).days if (succ_start and succ_end) else 7
+        new_start, new_end = None, None
+        if dep_type == "FS":
+            new_start = pred_end
+            new_end = new_start + timedelta(days=max(1, duration_days))
+        elif dep_type == "SS":
+            new_start = pred_start
+            new_end = new_start + timedelta(days=max(1, duration_days))
+        elif dep_type == "FF":
+            new_end = pred_end
+            new_start = new_end - timedelta(days=max(1, duration_days))
+        elif dep_type == "SF":
+            new_end = pred_start
+            new_start = new_end - timedelta(days=max(1, duration_days))
+        else:
+            continue
+        new_start_str = new_start.isoformat()
+        new_end_str = new_end.isoformat()
+        conn.execute(
+            "UPDATE tasks SET start_date = ?, end_date = ?, updated_at = ? WHERE uid = ?",
+            (new_start_str, new_end_str, now, succ_uid),
+        )
+        tasks_by_uid[succ_uid] = {"uid": succ_uid, "start_date": new_start_str, "end_date": new_end_str}
+        _record_audit_event(
+            conn,
+            actor_employee_id=actor_employee_id,
+            action_type="task_update",
+            entity_type="task",
+            entity_uid=succ_uid,
+            task_uid=succ_uid,
+            task_name=_get_task_name(conn, succ_uid),
+            prior_value={"start_date": succ.get("start_date"), "end_date": succ.get("end_date")},
+            new_value={"start_date": new_start_str, "end_date": new_end_str},
+            metadata={"auto_scheduled": True, "predecessor_uid": pred_uid, "dependency_type": dep_type},
+        )
+        _propagate_auto_schedule(conn, project_uid, succ_uid, actor_employee_id)
 
 
 def _get_task_name(conn, task_uid: Optional[str]) -> Optional[str]:
@@ -385,7 +470,7 @@ def list_tasks(project_uid: str):
         cur = conn.execute(
             """SELECT uid, project_uid, parent_task_uid, name, description, accountable_person,
                      responsible_party, start_date, end_date, is_milestone, status, progress, sort_order,
-                     is_deleted, deleted_at, deleted_by, created_at, updated_at
+                     scheduling_mode, is_deleted, deleted_at, deleted_by, created_at, updated_at
               FROM tasks WHERE project_uid = ? AND COALESCE(is_deleted, 0) = 0 ORDER BY sort_order, created_at""",
             (project_uid,),
         )
@@ -403,6 +488,7 @@ def list_tasks_single():
 def create_task(project_uid: str, body: TaskCreate, request: Request):
     actor_employee_id = _get_actor_employee_id(request)
     _validate_task_status(body.status)
+    _validate_scheduling_mode(body.scheduling_mode)
     with get_conn() as conn:
         if conn.execute("SELECT uid FROM projects WHERE uid = ?", (project_uid,)).fetchone() is None:
             raise HTTPException(404, "Project not found")
@@ -422,25 +508,38 @@ def create_task(project_uid: str, body: TaskCreate, request: Request):
                     end_date = (parent_start + timedelta(days=7)).isoformat()
                 except (ValueError, TypeError):
                     pass
+        if body.sort_order is not None:
+            sort_order = body.sort_order
+        elif body.parent_task_uid is None:
+            row = conn.execute(
+                "SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_order FROM tasks WHERE project_uid = ? AND parent_task_uid IS NULL",
+                (project_uid,),
+            ).fetchone()
+            sort_order = row["next_order"] if row else 1
+        else:
+            sort_order = 0
         uid = str(uuid.uuid4())
         now = _now()
+        scheduling_mode = (body.scheduling_mode or "fixed").lower()
+        if scheduling_mode not in VALID_SCHEDULING_MODES:
+            scheduling_mode = "fixed"
         conn.execute(
             """INSERT INTO tasks (uid, project_uid, parent_task_uid, name, description,
                accountable_person, responsible_party, start_date, end_date, is_milestone, status, progress, sort_order,
-               is_deleted, deleted_at, deleted_by, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               scheduling_mode, is_deleted, deleted_at, deleted_by, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 uid, project_uid, body.parent_task_uid, body.name.strip(), body.description or "",
                 body.accountable_person or "", body.responsible_party or "",
-                start_date, end_date, int(body.is_milestone), body.status, body.progress, body.sort_order,
-                0, None, None, now, now,
+                start_date, end_date, int(body.is_milestone), body.status, body.progress, sort_order,
+                scheduling_mode, 0, None, None, now, now,
             ),
         )
         task = {"uid": uid, "project_uid": project_uid, "parent_task_uid": body.parent_task_uid,
                 "name": body.name.strip(), "description": body.description or "",
                 "accountable_person": body.accountable_person or "", "responsible_party": body.responsible_party or "",
                 "start_date": start_date, "end_date": end_date, "is_milestone": body.is_milestone, "status": body.status,
-                "progress": body.progress, "sort_order": body.sort_order, "is_deleted": False,
+                "progress": body.progress, "sort_order": sort_order, "scheduling_mode": scheduling_mode, "is_deleted": False,
                 "deleted_at": None, "deleted_by": None, "created_at": now, "updated_at": now}
         _record_audit_event(
             conn,
@@ -468,7 +567,7 @@ def get_task(uid: str):
         row = conn.execute(
             """SELECT uid, project_uid, parent_task_uid, name, description, accountable_person,
                       responsible_party, start_date, end_date, is_milestone, status, progress, sort_order,
-                      is_deleted, deleted_at, deleted_by, created_at, updated_at
+                      scheduling_mode, is_deleted, deleted_at, deleted_by, created_at, updated_at
                FROM tasks WHERE uid = ?""",
             (uid,),
         ).fetchone()
@@ -480,6 +579,8 @@ def get_task(uid: str):
 @app.patch("/api/tasks/{uid}")
 def update_task(uid: str, body: TaskUpdate, request: Request):
     _validate_task_status(body.status)
+    if body.scheduling_mode is not None:
+        _validate_scheduling_mode(body.scheduling_mode)
     updates = []
     values = []
     for k, v in body.model_dump(exclude_unset=True).items():
@@ -515,6 +616,12 @@ def update_task(uid: str, body: TaskUpdate, request: Request):
             prior_value=previous_task,
             new_value=task,
         )
+        if "start_date" in body.model_dump(exclude_unset=True) or "end_date" in body.model_dump(exclude_unset=True):
+            project_uid = row["project_uid"]
+            _propagate_auto_schedule(conn, project_uid, uid, actor_employee_id)
+            row = conn.execute("SELECT * FROM tasks WHERE uid = ?", (uid,)).fetchone()
+            if row:
+                task = _normalize_task_dict(row)
     return task
 
 

@@ -32,7 +32,8 @@ This document outlines every feature and capability of the application, from bac
 
 ### 2.3 Tasks
 
-- **Fields**: uid, project_uid, parent_task_uid, name, description, accountable_person, responsible_party, start_date, end_date, is_milestone, status, progress, sort_order, is_deleted, deleted_at, deleted_by, created_at, updated_at.
+- **Fields**: uid, project_uid, parent_task_uid, name, description, accountable_person, responsible_party, start_date, end_date, is_milestone, status, progress, sort_order, scheduling_mode, is_deleted, deleted_at, deleted_by, created_at, updated_at.
+- **scheduling_mode**: `fixed` (default) or `auto`. Fixed: dates stay as set. Auto: dates recalculated when predecessors change (based on dependency type FS/SS/FF/SF).
 - **Status values**: `not_started`, `in_progress`, `complete`, `blocked`, `cancelled`.
 - **Endpoints**:
   - `GET /api/tasks` — List non-deleted tasks for the default project (ordered by sort_order, created_at).
@@ -136,7 +137,7 @@ The workspace is the primary screen: task table (left) and Gantt timeline (right
 - **Filter summary**: Text like “All filters off” or “Filtered by …” and/or “Focused on …”.
 - **Task table**:
   - Columns: Task (hierarchy number, expand/collapse, milestone marker, RAG dot, name), Accountable, Responsible, Start, End, RAG, Status, %, and actions.
-  - Rows: One per visible task in the filtered/expanded tree; indent by depth; cancelled tasks styled.
+  - Rows: One per visible task in the filtered/expanded tree; indent by depth; cancelled tasks styled; past-due tasks show a left border and warning icon (end_date &lt; today and status not complete/cancelled).
   - Row click: Select row; syncs selection to Gantt and detail.
   - Row double-click: Open task detail modal.
   - Expand/collapse: Click chevron to toggle that task’s children (state in memory, not persisted).
@@ -144,6 +145,7 @@ The workspace is the primary screen: task table (left) and Gantt timeline (right
   - Clicking Accountable, Responsible, Start, End, RAG, Status, or Progress opens a popover to edit that field; Save sends PATCH or RAG POST and refreshes.
   - RAG quick edit: status, rationale, path to green; rationale required for amber/red.
   - Progress: slider plus 0/25/50/75/100% presets.
+- **Add top-level task** (edit mode only): Button in task panel toolbar; modal for task name; creates task with parent_task_uid null and default dates (today + 7 days).
 - **Add subtask** (edit mode only): “+” per row; modal for task name; creates task with parent_task_uid and default dates (parent start + 7 days).
 - **Quick comment** (edit mode only): Comment icon per row; popover to add comment (author from employee ID); persists and refreshes.
 - **Task name tooltip**: Hover/focus on task name shows super-tooltip with description, duration, latest comment, and risks (loaded on delay).
@@ -160,7 +162,7 @@ The workspace is the primary screen: task table (left) and Gantt timeline (right
 - **Timeline content**:
   - Time axis: Two header rows (e.g. years + months or months + weeks) and weekend shading.
   - Today line: Vertical line at today’s date.
-  - Rows: One per visible task; bar or milestone diamond; RAG color; progress fill on bars; label and meta (dates).
+  - Rows: One per visible task; bar or milestone diamond; RAG color; progress fill on bars; label and meta (dates); past-due bars show a red border (end_date &lt; today and status not complete/cancelled).
   - Row/bar click: Select task.
   - Bar double-click: Open task detail modal.
   - Hover on bar: Tooltip (name, description, type, status, RAG, progress, dates, accountable, responsible); dependency highlight (incoming/outgoing links).
@@ -180,7 +182,7 @@ The workspace is the primary screen: task table (left) and Gantt timeline (right
 - **Open**: Double-click task row or bar; or from row/bar single-click then open-detail (e.g. from a future “Open” control if present). Modal has tabs: Task, Health, Comments, Risks, Dependencies.
 - **Top bar**: Chips (milestone, accountable, responsible, schedule, status • progress %, mode). In edit mode: “Save task” and hint.
 - **Task tab**:
-  - Edit mode: Name, description, accountable, responsible, “Render as milestone”, start/end (or milestone date + mirror), status, progress %. Save sends PATCH and refreshes.
+  - Edit mode: Name, description, accountable, responsible, “Render as milestone”, start/end (or milestone date + mirror), scheduling (Fixed/Auto), status, progress %. Save sends PATCH and refreshes.
   - Read-only: Same fields as readonly.
   - Danger zone: “Remove from plan view” — “Delete, keep subtasks” (soft-delete shift_up) and “Delete with subtasks” (soft-delete delete_subtasks); confirm then API and close modal + refresh.
 - **Health tab**:

@@ -6,6 +6,7 @@ Gantt.table = (function() {
   var prettyDate = function(d) { return Gantt.utils.prettyDate(d); };
   var dateStr = function(d) { return Gantt.utils.dateStr(d); };
   var titleCaseStatus = function(status) { return Gantt.utils.titleCaseStatus(status); };
+  var isTaskPastDue = function(task) { return Gantt.utils.isTaskPastDue(task); };
   var showToast = function(msg, err) { return Gantt.utils.showToast(msg, err); };
   var taskTooltipEl = null;
   var taskTooltipHideTimer = null;
@@ -483,8 +484,10 @@ Gantt.table = (function() {
           }).join('') +
           (riskOverflowCount > 0 ? '<div class="task-super-tooltip-muted">+' + riskOverflowCount + ' more risk' + (riskOverflowCount === 1 ? '' : 's') + '</div>' : '') +
           '</div>';
+    var pastDueBadge = isTaskPastDue(task) ? '<div class="task-super-tooltip-past-due">Past due</div>' : '';
     tooltip.innerHTML =
       '<div class="task-super-tooltip-title">' + escapeHtml(task.name || 'Untitled task') + '</div>' +
+      pastDueBadge +
       '<div class="task-super-tooltip-desc">' + escapeHtml(task.description || 'No description provided.') + '</div>' +
       '<div class="task-super-tooltip-grid">' +
         '<div class="task-super-tooltip-label">Duration</div><div class="task-super-tooltip-value">' + escapeHtml(getTaskDurationValue(task)) + '</div>' +
@@ -592,6 +595,7 @@ Gantt.table = (function() {
       var rowClasses = [];
       if (selectedTaskUid === t.uid) rowClasses.push('selected');
       if (t.status === 'cancelled') rowClasses.push('task-row-cancelled');
+      if (isTaskPastDue(t)) rowClasses.push('task-row-past-due');
       var accountableCell = isEditable
         ? renderQuickEditCell(t, 'accountable', '<span class="person-chip">' + escapeHtml(t.accountable_person || 'Unassigned') + '</span>')
         : '<span class="person-chip">' + escapeHtml(t.accountable_person || 'Unassigned') + '</span>';
@@ -623,7 +627,7 @@ Gantt.table = (function() {
             '<span class="' + toggleClass + '" data-uid="' + escapeHtml(t.uid) + '" data-has-children="' + (hasKids ? '1' : '0') + '" title="' + escapeHtml(toggleTitle) + '" aria-label="' + escapeHtml(toggleTitle) + '">' + toggleChar + '</span>' +
             milestoneMarker +
             '<span class="rag-dot ' + rag + '" aria-hidden="true"></span>' +
-            '<div class="task-name task-title-tooltip-anchor' + (t.status === 'cancelled' ? ' is-cancelled' : '') + '" data-task-uid="' + escapeHtml(t.uid) + '" tabindex="0">' + escapeHtml(t.name) + '</div>' +
+            '<div class="task-name task-title-tooltip-anchor' + (t.status === 'cancelled' ? ' is-cancelled' : '') + (isTaskPastDue(t) ? ' has-past-due-indicator' : '') + '" data-task-uid="' + escapeHtml(t.uid) + '" tabindex="0">' + (isTaskPastDue(t) ? '<span class="past-due-icon" title="Past due" aria-label="Past due">!</span>' : '') + escapeHtml(t.name) + '</div>' +
             '</div>' +
           '</div>' +
         '</td>' +

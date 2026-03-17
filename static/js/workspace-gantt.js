@@ -6,6 +6,7 @@ Gantt.gantt = (function() {
   var escapeHtml = function(s) { return Gantt.utils.escapeHtml(s); };
   var prettyDate = function(d) { return Gantt.utils.prettyDate(d); };
   var titleCaseStatus = function(status) { return Gantt.utils.titleCaseStatus(status); };
+  var isTaskPastDue = function(task) { return Gantt.utils.isTaskPastDue(task); };
   var showToast = Gantt.utils.showToast;
   var activeTooltip = null;
   var tooltipHideTimer = null;
@@ -366,8 +367,10 @@ Gantt.gantt = (function() {
     var dateLabel = (task.start_date && task.end_date)
       ? (task.is_milestone ? prettyDate(task.start_date) : (prettyDate(task.start_date) + ' - ' + prettyDate(task.end_date)))
       : 'Unscheduled';
+    var pastDueBadge = isTaskPastDue(task) ? '<div class="gantt-super-tooltip-past-due">Past due</div>' : '';
     tooltip.innerHTML =
       '<div class="gantt-super-tooltip-title">' + escapeHtml(task.name) + '</div>' +
+      pastDueBadge +
       '<div class="gantt-super-tooltip-desc">' + escapeHtml(description) + '</div>' +
       '<div class="gantt-super-tooltip-grid">' +
         '<div class="gantt-super-tooltip-label">Type</div><div class="gantt-super-tooltip-value">' + (task.is_milestone ? 'Milestone' : 'Task') + '</div>' +
@@ -498,8 +501,9 @@ Gantt.gantt = (function() {
       var rag = taskRag[t.uid] || 'none';
       var isMilestone = !!t.is_milestone;
       var isCancelled = t.status === 'cancelled';
+      var isPastDue = isTaskPastDue(t);
       var row = document.createElement('div');
-      row.className = 'gantt-row' + (selectedTaskUid === t.uid ? ' selected' : '') + (isCancelled ? ' cancelled' : '');
+      row.className = 'gantt-row' + (selectedTaskUid === t.uid ? ' selected' : '') + (isCancelled ? ' cancelled' : '') + (isPastDue ? ' past-due' : '');
       row.style.height = ROW_HEIGHT + 'px';
       row.setAttribute('data-uid', t.uid);
       var barWrap = document.createElement('div');
@@ -525,7 +529,7 @@ Gantt.gantt = (function() {
         w = isMilestone ? 18 : Math.max(48, pxPerDay * 7);
       }
       var bar = document.createElement('button');
-      bar.className = 'bar rag-' + rag + (isMilestone ? ' milestone' : '') + (isCancelled ? ' cancelled' : '');
+      bar.className = 'bar rag-' + rag + (isMilestone ? ' milestone' : '') + (isCancelled ? ' cancelled' : '') + (isPastDue ? ' bar-past-due' : '');
       bar.type = 'button';
       if (isMilestone) {
         var milestoneCenter = left + (pxPerDay / 2);

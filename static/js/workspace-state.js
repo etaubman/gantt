@@ -67,6 +67,7 @@ Gantt.state = (function() {
     btnExport: document.getElementById('btn-export'),
     btnImport: document.getElementById('btn-import'),
     fileImport: document.getElementById('file-import'),
+    btnAddTopLevelTask: document.getElementById('btn-add-top-level-task'),
     taskCountBadge: document.getElementById('task-count-badge'),
     timelineSummaryBadge: document.getElementById('timeline-summary-badge')
   };

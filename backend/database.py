@@ -3,7 +3,8 @@ import os
 import sqlite3
 from contextlib import contextmanager
 
-DB_PATH = os.environ.get("GANTT_DB_PATH", "/data/gantt.db")
+_DEFAULT_DB = os.path.join(os.path.dirname(__file__), "..", "data", "gantt.db")
+DB_PATH = os.environ.get("GANTT_DB_PATH", _DEFAULT_DB)
 
 
 def init_db():
@@ -120,6 +121,8 @@ def init_db():
             conn.execute("ALTER TABLE tasks ADD COLUMN deleted_at TEXT")
         if "deleted_by" not in task_columns:
             conn.execute("ALTER TABLE tasks ADD COLUMN deleted_by TEXT")
+        if "scheduling_mode" not in task_columns:
+            conn.execute("ALTER TABLE tasks ADD COLUMN scheduling_mode TEXT DEFAULT 'fixed'")
 
 
 @contextmanager

@@ -136,6 +136,11 @@ Gantt.workspace = (function() {
       el.btnImport.hidden = !showImport;
       el.btnImport.disabled = !showImport;
     }
+    if (el.btnAddTopLevelTask) {
+      var showAddTopLevel = !!editMode && !!lockedBySelf;
+      el.btnAddTopLevelTask.hidden = !showAddTopLevel;
+      el.btnAddTopLevelTask.disabled = !showAddTopLevel;
+    }
   }
 
   function updateServerIndicatorUi() {
@@ -690,7 +695,12 @@ Gantt.workspace = (function() {
         });
       })
       .catch(function(e) {
-        if (e && e.status && !e.isConnectionError) showToast(e.message || 'Load failed', true);
+        var msg = (e && (e.message || (e.data && (e.data.message || (e.data.detail && (typeof e.data.detail === 'string' ? e.data.detail : e.data.detail.message)))))) || 'Load failed';
+        if (e && e.status && !e.isConnectionError) {
+          showToast(msg, true);
+        } else if (!e || !e.status) {
+          showToast('Cannot reach server. Is it running at ' + window.location.origin + '?', true);
+        }
       })
       .finally(function() {
         setLoading(false);
@@ -814,6 +824,25 @@ Gantt.workspace = (function() {
       state.setEmployeeId(normalizedStoredEmployeeId);
     }
 
+    var btnAddTopLevelTask = el.btnAddTopLevelTask;
+    if (btnAddTopLevelTask) {
+      btnAddTopLevelTask.addEventListener('click', function() {
+        ensureEditAccess(function() {
+          var detail = Gantt.detail;
+          if (!detail || !detail.showTaskModal) return;
+          detail.showTaskModal('Add top-level task', null, function(name) {
+            var today = new Date();
+            var startDate = today.toISOString().slice(0, 10);
+            var end = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+            var endDate = end.toISOString().slice(0, 10);
+            var payload = { name: name, parent_task_uid: null, start_date: startDate, end_date: endDate };
+            api.postTask(payload)
+              .then(function() { showToast('Top-level task added'); refreshAll(); })
+              .catch(function(e) { showToast(e.message, true); });
+          });
+        });
+      });
+    }
     var btnExpandAll = document.getElementById('btn-expand-all');
     var btnCollapseAll = document.getElementById('btn-collapse-all');
     if (btnExpandAll) {

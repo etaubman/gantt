@@ -153,6 +153,12 @@ Gantt.detail = (function() {
                 '<div class="field"><label>' + (task.is_milestone ? 'Milestone date' : 'Start date') + '</label><input type="date" id="detail-start" value="' + dateStr(task.start_date) + '" /></div>' +
                 '<div class="field"><label>' + (task.is_milestone ? 'Mirror date' : 'End date') + '</label><input type="date" id="detail-end" value="' + dateStr(task.end_date) + '" /></div>' +
               '</div>' +
+              '<div class="field"><label>Scheduling</label>' +
+                '<select id="detail-scheduling-mode">' +
+                  '<option value="fixed"' + ((task.scheduling_mode || 'fixed') === 'fixed' ? ' selected' : '') + '>Fixed (manual dates)</option>' +
+                  '<option value="auto"' + ((task.scheduling_mode || 'fixed') === 'auto' ? ' selected' : '') + '>Auto (dates from dependencies)</option>' +
+                '</select>' +
+              '</div>' +
               '<div class="detail-danger-zone">' +
                 '<div class="detail-danger-copy">' +
                   '<div class="detail-danger-title">Remove from plan view</div>' +
@@ -173,7 +179,8 @@ Gantt.detail = (function() {
               '<div class="form-row">' +
                 readonlyField(task.is_milestone ? 'Milestone date' : 'Start date', prettyDate(task.start_date)) +
                 readonlyField(task.is_milestone ? 'Mirror date' : 'End date', prettyDate(task.end_date)) +
-              '</div>')) +
+              '</div>' +
+              readonlyField('Scheduling', (task.scheduling_mode || 'fixed') === 'auto' ? 'Auto' : 'Fixed'))) +
         '</div>' +
       '</div>' +
       '<div class="detail-tab-panel' + (activeTabName === 'health' ? ' is-active' : '') + '" data-tab-panel="health"' + (activeTabName === 'health' ? '' : ' hidden') + '>' +
@@ -311,6 +318,7 @@ Gantt.detail = (function() {
           if (!startDate && endDate) startDate = endDate;
           if (startDate && endDate && startDate !== endDate) endDate = startDate;
         }
+        var schedulingModeEl = document.getElementById('detail-scheduling-mode');
         var payload = {
           name: document.getElementById('detail-name').value.trim(),
           description: document.getElementById('detail-desc').value.trim(),
@@ -322,6 +330,7 @@ Gantt.detail = (function() {
           status: document.getElementById('detail-status').value,
           progress: parseInt(document.getElementById('detail-progress').value, 10) || 0
         };
+        if (schedulingModeEl) payload.scheduling_mode = schedulingModeEl.value || 'fixed';
         workspace.ensureEditAccess(function() {
           Gantt.api.patchTask(selectedTaskUid, payload)
             .then(function() { showToast('Task saved'); flashButtonSuccess('detail-save', 'Saved'); if (refreshAll) refreshAll(); })
