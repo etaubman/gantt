@@ -8,6 +8,7 @@ Gantt.detail = (function() {
   var showToast = function(msg, err) { return Gantt.utils.showToast(msg, err); };
   var activeTabName = 'task';
   var lastRenderedTaskUid = null;
+  var auditCacheByTaskUid = {};
   var bindRagTooltip = function(anchor, options) {
     if (Gantt.ragTooltip && Gantt.ragTooltip.bind) {
       Gantt.ragTooltip.bind(anchor, options);
@@ -78,6 +79,117 @@ Gantt.detail = (function() {
     if (!task.start_date || !task.end_date) return task.is_milestone ? 'Unscheduled milestone' : 'Unscheduled task';
     if (task.is_milestone) return prettyDate(task.start_date || task.end_date);
     return prettyDate(task.start_date) + ' - ' + prettyDate(task.end_date);
+  }
+
+  function formatTimestamp(value) {
+    if (!value) return '';
+    var d = new Date(value);
+    if (isNaN(d.getTime())) return String(value);
+    return d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+
+  function formatActionLabel(actionType) {
+    if (!actionType) return 'Event';
+    return String(actionType).replace(/_/g, ' ');
+  }
+
+  function safeJsonParse(value) {
+    if (value == null) return null;
+    if (typeof value === 'object') return value;
+    var text = String(value).trim();
+    if (!text) return null;
+    try { return JSON.parse(text); } catch (_) { return text; }
+  }
+
+  function prettyJson(value) {
+    if (value == null) return '—';
+    if (typeof value === 'string') return value;
+    try { return JSON.stringify(value, null, 2); } catch (_) { return String(value); }
+  }
+
+  function buildAuditDiffRows(prior, next) {
+    if (prior == null && next == null) return [];
+    if (typeof prior !== 'object' || typeof next !== 'object' || Array.isArray(prior) || Array.isArray(next) || !prior || !next) return [];
+    var keys = {};
+    Object.keys(prior).forEach(function(k) { keys[k] = true; });
+    Object.keys(next).forEach(function(k) { keys[k] = true; });
+    return Object.keys(keys).sort().map(function(k) {
+      var a = prior[k];
+      var b = next[k];
+      var aStr = a == null ? '—' : (typeof a === 'string' ? a : JSON.stringify(a));
+      var bStr = b == null ? '—' : (typeof b === 'string' ? b : JSON.stringify(b));
+      return { key: k, prior: aStr, next: bStr, changed: aStr !== bStr };
+    }).filter(function(r) { return r.changed; }).slice(0, 12);
+  }
+
+  function renderAuditHistory(task, events) {
+    var shell = document.getElementById('audit-history');
+    if (!shell) return;
+    if (!Array.isArray(events)) {
+      shell.innerHTML = '<div class="empty-state-card">Unable to load audit history.</div>';
+      return;
+    }
+    if (!events.length) {
+      shell.innerHTML = '<div class="empty-state-card">No audit events recorded for this task yet.</div>';
+      return;
+    }
+    var html = events.slice(0, 50).map(function(ev, idx) {
+      var actor = ev.actor_employee_id || 'SYSTEM';
+      var action = formatActionLabel(ev.action_type);
+      var when = formatTimestamp(ev.created_at);
+      var prior = safeJsonParse(ev.prior_value);
+      var next = safeJsonParse(ev.new_value);
+      var diffs = buildAuditDiffRows(prior, next);
+      var diffHtml = diffs.length
+        ? ('<div class="audit-diff">' + diffs.map(function(r) {
+            return '<div class="audit-diff-row"><span class="audit-diff-key">' + escapeHtml(r.key) + '</span><span class="audit-diff-arrow" aria-hidden="true">→</span><span class="audit-diff-next">' + escapeHtml(r.next) + '</span></div>';
+          }).join('') + '</div>')
+        : '';
+      var hasDetails = (prior != null && prior !== '') || (next != null && next !== '');
+      return '<div class="list-item audit-item">' +
+        '<div class="list-item-header">' +
+          '<div class="list-item-badges">' +
+            '<span class="risk-status-chip">' + escapeHtml(action) + '</span>' +
+            '<span class="risk-status-chip">' + escapeHtml(actor) + '</span>' +
+          '</div>' +
+          '<div class="meta">' + escapeHtml(when) + '</div>' +
+        '</div>' +
+        (diffHtml ? ('<div class="list-item-body">' + diffHtml + '</div>') : '') +
+        (hasDetails
+          ? ('<details class="audit-details"' + (idx === 0 ? ' open' : '') + '>' +
+              '<summary>Details</summary>' +
+              '<div class="audit-json-grid">' +
+                '<div class="audit-json-card"><div class="audit-json-title">Prior</div><pre class="audit-json">' + escapeHtml(prettyJson(prior)) + '</pre></div>' +
+                '<div class="audit-json-card"><div class="audit-json-title">New</div><pre class="audit-json">' + escapeHtml(prettyJson(next)) + '</pre></div>' +
+              '</div>' +
+            '</details>')
+          : '') +
+      '</div>';
+    }).join('');
+    shell.innerHTML = html;
+  }
+
+  function loadAuditHistory(taskUid, task) {
+    var shell = document.getElementById('audit-history');
+    if (!shell || !taskUid) return;
+    var cached = auditCacheByTaskUid[taskUid];
+    if (cached && cached.status === 'loaded') {
+      renderAuditHistory(task, cached.events || []);
+      return;
+    }
+    shell.innerHTML = '<div class="empty-state-card">Loading audit history…</div>';
+    auditCacheByTaskUid[taskUid] = { status: 'loading', events: [] };
+    if (!Gantt.api || !Gantt.api.getAuditEvents) return;
+    Gantt.api.getAuditEvents({ task_uid: taskUid })
+      .then(function(events) {
+        auditCacheByTaskUid[taskUid] = { status: 'loaded', events: Array.isArray(events) ? events : [] };
+        renderAuditHistory(task, auditCacheByTaskUid[taskUid].events);
+      })
+      .catch(function(err) {
+        auditCacheByTaskUid[taskUid] = { status: 'error', events: [] };
+        shell.innerHTML = '<div class="empty-state-card">Unable to load audit history.</div>';
+        showToast((err && err.message) || 'Unable to load audit history', true);
+      });
   }
 
   function renderSchedulingModeButtons(mode) {
@@ -195,6 +307,7 @@ Gantt.detail = (function() {
         '<button type="button" class="detail-tab' + (activeTabName === 'comments' ? ' is-active' : '') + '" data-tab-btn="comments">Comments</button>' +
         '<button type="button" class="detail-tab' + (activeTabName === 'risks' ? ' is-active' : '') + '" data-tab-btn="risks">Risks</button>' +
         '<button type="button" class="detail-tab' + (activeTabName === 'dependencies' ? ' is-active' : '') + '" data-tab-btn="dependencies">Dependencies</button>' +
+        '<button type="button" class="detail-tab' + (activeTabName === 'audit' ? ' is-active' : '') + '" data-tab-btn="audit">Audit</button>' +
       '</div>' +
       '<div class="detail-tab-panel' + (activeTabName === 'task' ? ' is-active' : '') + '" data-tab-panel="task"' + (activeTabName === 'task' ? '' : ' hidden') + '>' +
         '<div class="section">' +
@@ -351,6 +464,17 @@ Gantt.detail = (function() {
               '<p class="empty-msg" style="font-size:0.85rem">Add dependency: this task as successor; choose predecessor above.</p>')
             : '') +
         '</div>' +
+      '</div>' +
+      '<div class="detail-tab-panel' + (activeTabName === 'audit' ? ' is-active' : '') + '" data-tab-panel="audit"' + (activeTabName === 'audit' ? '' : ' hidden') + '>' +
+        '<div class="section">' +
+          '<div class="section-heading">' +
+            '<div>' +
+              '<h3>Audit history</h3>' +
+              '<p class="section-copy">A chronological record of changes affecting this task.</p>' +
+            '</div>' +
+          '</div>' +
+          '<div id="audit-history"></div>' +
+        '</div>' +
       '</div>';
 
     function activateTab(tabName) {
@@ -365,6 +489,9 @@ Gantt.detail = (function() {
         panel.classList.toggle('is-active', active);
         panel.hidden = !active;
       });
+      if (tabName === 'audit') {
+        loadAuditHistory(task.uid, task);
+      }
     }
 
     el.detailContent.querySelectorAll('[data-tab-btn]').forEach(function(btn) {
@@ -373,6 +500,10 @@ Gantt.detail = (function() {
       });
     });
     bindScheduleControls(el.detailContent);
+
+    if (activeTabName === 'audit') {
+      loadAuditHistory(task.uid, task);
+    }
 
     // Save task
     var detailSaveBtn = document.getElementById('detail-save');
