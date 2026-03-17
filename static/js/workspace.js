@@ -1321,6 +1321,19 @@ Gantt.workspace = (function() {
           e.preventDefault();
           openTaskDetail(selectedUid);
         }
+      } else if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && selectedUid) {
+        var hasChildren = tree.some(function(t) { return t.parent_task_uid === selectedUid; });
+        if (!hasChildren) return;
+        var expanded = state.isExpanded(selectedUid);
+        if (e.key === 'ArrowLeft' && expanded) {
+          e.preventDefault();
+          state.toggleCollapsed(selectedUid);
+          render();
+        } else if (e.key === 'ArrowRight' && !expanded) {
+          e.preventDefault();
+          state.toggleCollapsed(selectedUid);
+          render();
+        }
       }
     });
 
